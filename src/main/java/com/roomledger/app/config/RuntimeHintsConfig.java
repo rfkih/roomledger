@@ -24,15 +24,6 @@ public class RuntimeHintsConfig implements RuntimeHintsRegistrar {
     @Override
     public void registerHints(@NotNull RuntimeHints hints, ClassLoader classLoader) {
         try {
-            /*register redis*/
-            if (ClassUtils.isPresent("io.lettuce.core.RedisClient", classLoader)) {
-                hints.reflection().registerType(TypeReference.of("io.lettuce.core.RedisClient"),
-                        it -> it
-                                .onReachableType(
-                                        TypeReference.of("org.springframework.data.redis.connection.lettuce.StandaloneConnectionProvider"))
-                                .withMembers(MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.DECLARED_FIELDS));
-            }
-
             /*register serialization internal class*/
             getInternalClass().forEach(serializable -> hints.serialization().registerType(serializable));
 

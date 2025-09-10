@@ -76,8 +76,6 @@ public class TenantController {
         ).getBody();
     }
 
-
-
     @GetMapping
     public java.util.List<Tenant> list() { return tenantRepository.findAll(); }
 }

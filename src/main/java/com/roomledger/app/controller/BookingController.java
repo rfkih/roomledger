@@ -39,17 +39,12 @@ public class BookingController {
     private String applicationCode;
 
     private final BookingRepository bookings;
-    private final RoomRepository rooms;
-    private final TenantRepository tenants;
     private final PaymentRepository payments;
     private final BookingService bookingService;
     private final BillingService billingService ;
 
-    public BookingController(BookingRepository bookings, RoomRepository rooms,
-                             TenantRepository tenants, PaymentRepository payments, BookingService bookingService, BillingService billingService) {
+    public BookingController(BookingRepository bookings,  PaymentRepository payments, BookingService bookingService, BillingService billingService) {
         this.bookings = bookings;
-        this.rooms = rooms;
-        this.tenants = tenants;
         this.payments = payments;
         this.bookingService = bookingService;
         this.billingService = billingService;

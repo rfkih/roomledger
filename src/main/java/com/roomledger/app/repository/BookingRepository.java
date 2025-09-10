@@ -36,7 +36,6 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     List<Booking> findByIdInAndStatus(Iterable<UUID> ids, Booking.Status status);
 
-    // Candidates to OCCUPIED (has VERIFIED rent)
     @Query("""
         select b
           from Booking b

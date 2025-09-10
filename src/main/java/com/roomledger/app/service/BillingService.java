@@ -103,7 +103,7 @@ public class BillingService {
                         cursor.toString(),                // "yyyy-MM"
                         daysInMonth,
                         billableDays,
-                        daily.setScale(4, RM),            // show 4 decimals for display
+                        daily.setScale(4, RM),
                         lineSubtotal
                 ));
 

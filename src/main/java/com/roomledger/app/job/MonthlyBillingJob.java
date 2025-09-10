@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.*;
 import java.util.List;
 import java.util.Optional;
@@ -20,17 +19,14 @@ import java.util.Optional;
 public class MonthlyBillingJob {
     private final BookingRepository bookings;
     private final PaymentRepository payments;
-    private final BillingService billing;
     private final ClockService clockService;
 
-    public MonthlyBillingJob(BookingRepository bookings, PaymentRepository payments, BillingService billing, ClockService clockService) {
+    public MonthlyBillingJob(BookingRepository bookings, PaymentRepository payments, ClockService clockService) {
         this.bookings = bookings; this.payments = payments;
-        this.billing = billing;
         this.clockService = clockService;
     }
 
 //    @Scheduled(cron = "0 5 2 * * *", zone = "Asia/Jakarta")
-
     @Transactional
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")
     public void ensureNextMonthBillsAndRenewals() throws InvalidTransactionException {
