@@ -6,9 +6,7 @@ import com.roomledger.app.repository.BookingRepository;
 import com.roomledger.app.repository.PaymentRepository;
 import com.roomledger.app.service.ClockService;
 import com.roomledger.app.service.ParamService;
-import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -17,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -26,7 +26,7 @@ public class DepositExpiryJob {
     private final PaymentRepository payments;
     private final BookingRepository bookings;
     private final ParamService params;
-    private final ClockService clock; // for zone
+    private final ClockService clock;
 
     public DepositExpiryJob(PaymentRepository payments,
                             BookingRepository bookings,
@@ -41,16 +41,16 @@ public class DepositExpiryJob {
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")//run for every 1 minute
     @Transactional
     public void cancelDraftsWithoutDeposit() {
-        final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 1);
+        final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 60);
         log.info("Checking for deposits older than {} minutes", ttl);
 
-        var cutoff = java.time.LocalDateTime.now().minusMinutes(ttl);
+        LocalDateTime cutoff = clock.now().minusMinutes(ttl);
 
         // Find overdue deposits
-        var overdueDeposits = payments.findByTypeAndStatusAndCreatedAtBefore(
+        List<Payment>  overdueDeposits = payments.findByTypeAndStatusAndCreatedAtBefore(
                 Payment.Type.DEPOSIT, Payment.Status.PENDING, cutoff);
 
-        var bookingIdsToCancel = overdueDeposits.stream()
+        Set<UUID> bookingIdsToCancel = overdueDeposits.stream()
                 .map(Payment::getBooking)
                 .filter(Objects::nonNull)
                 .map(Booking::getId)

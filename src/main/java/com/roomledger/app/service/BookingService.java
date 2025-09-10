@@ -1,9 +1,6 @@
 package com.roomledger.app.service;
 
-import com.roomledger.app.dto.CreateBookingRequest;
-import com.roomledger.app.dto.BillingQuoteResponse;
-import com.roomledger.app.dto.DraftBookingResult;
-import com.roomledger.app.exthandler.BadRequestException;
+import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.*;
 import com.roomledger.app.repository.*;
@@ -12,7 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class BookingService {
@@ -22,17 +21,19 @@ public class BookingService {
     private final TenantRepository tenants;
     private final PaymentRepository payments;
     private final BillingService billing;
+    private final ClockService clockService;
 
     public BookingService(BookingRepository bookings,
                           RoomRepository rooms,
                           TenantRepository tenants,
                           PaymentRepository payments,
-                          BillingService billing) {
+                          BillingService billing, ClockService clockService) {
         this.bookings = bookings;
         this.rooms = rooms;
         this.tenants = tenants;
         this.payments = payments;
         this.billing = billing;
+        this.clockService = clockService;
     }
 
     /** Create a DRAFT booking + DEPOSIT payment + initial RENT bill(s). */
@@ -109,6 +110,51 @@ public class BookingService {
 
         p.setStatus(Payment.Status.VERIFIED);
         payments.save(p);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActiveBookingDto> activeWithBillsByPhone(String phone) {
+        var today = clockService.today();
+
+        // 1) Active bookings for phone
+        var active = bookings.findActiveByPhoneFetch(phone, today);
+        if (active.isEmpty()) return List.of();
+
+        // 2) Pending payments for those bookings, grouped by bookingId
+        var ids = active.stream().map(Booking::getId).collect(Collectors.toSet());
+        var pending = payments.findPendingByBookingIds(ids);
+        var byBooking = pending.stream().collect(Collectors.groupingBy(p -> p.getBooking().getId()));
+
+        // 3) Map to DTOs
+        return active.stream().map(b -> {
+            var t = b.getTenant();
+            var r = b.getRoom();
+
+            var bills = byBooking.getOrDefault(b.getId(), List.of())
+                    .stream()
+                    .map(p -> new PendingBillDto(
+                            p.getId(),
+                            p.getType().name(),
+                            p.getAmount(),
+                            p.getPeriodMonth(),
+                            p.getCreatedAt()
+                    ))
+                    .toList();
+
+            return new ActiveBookingDto(
+                    b.getId(),
+                    b.getStatus().name(),
+                    b.getStartDate(),
+                    b.getEndDate(),
+                    b.isAutoRenew(),
+                    t != null ? t.getId() : null,
+                    t != null ? t.getName() : null,
+                    t != null ? t.getPhone() : null,                                            // adapt
+                    r != null ? r.getId() : null,
+                    r != null ? r.getRoomNo() : null,
+                    bills
+            );
+        }).toList();
     }
 
 

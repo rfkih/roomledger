@@ -104,8 +104,7 @@ public class RoomOccupancyJob {
      */
     @Transactional
     @Scheduled(
-            cron = "${job.room-release-after-end.cron:0 * * * * *}",
-            zone = "Asia/Jakarta"
+            cron = "${job.room-release-after-end.cron:* 15 0 * * *}"
     )
     public void releaseRoomsPastEndDate() {
         final LocalDate today = clock.today();

@@ -33,10 +33,6 @@ public class RuntimeHintsConfig implements RuntimeHintsRegistrar {
                                 .withMembers(MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.DECLARED_FIELDS));
             }
 
-            /*register db2 dialect*/
-            hints.reflection()
-                    .registerType(DB2Dialect.class, MemberCategory.values());
-
             /*register serialization internal class*/
             getInternalClass().forEach(serializable -> hints.serialization().registerType(serializable));
 

@@ -1,10 +1,7 @@
 package com.roomledger.app.controller;
 
 
-import com.roomledger.app.dto.ActivationResponse;
-import com.roomledger.app.dto.CreateBookingRequest;
-import com.roomledger.app.dto.CreateBookingResponse;
-import com.roomledger.app.dto.DraftBookingResult;
+import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
 import com.roomledger.app.model.Payment;
@@ -30,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -147,12 +145,24 @@ public class BookingController {
                 ).getBody();
     }
 
+    @GetMapping("/active")
+    public ResponseService activeByPhone(@RequestParam String phone) {
+        List<ActiveBookingDto> list = bookingService.activeWithBillsByPhone(phone);
+        return ResponseUtil.setResponse(
+                HttpStatus.OK.value(),
+                applicationCode,
+                ResponseCode.SUCCESS.getCode(),
+                ResponseCode.SUCCESS.getDescription(),
+                list
+                ).getBody();
+    }
+
     @PostMapping("/{bookingId}/renewals/decision")
     @Transactional
     public ResponseService renewalDecision(
             @PathVariable UUID bookingId,
-            @RequestParam String period,        // "YYYY-MM"
-            @RequestParam boolean willContinue  // renter says yes/no
+            @RequestParam String period,
+            @RequestParam boolean willContinue
     ) throws InvalidTransactionException {
         Booking b = bookings.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found: " + bookingId));
@@ -230,6 +240,9 @@ public class BookingController {
             rent.setAmount(amount);
             rent.setPeriodMonth(day1);
             payments.save(rent);
+
+            b.setEndDate(b.getEndDate().plusMonths(1));
+            bookings.save(b);
 
             return ResponseUtil.setResponse(
                     HttpStatus.OK.value(),

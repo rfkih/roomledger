@@ -2,13 +2,12 @@ package com.roomledger.app.service;
 
 import com.roomledger.app.dto.BookingPaymentRequest;
 import com.roomledger.app.dto.BookingPaymentResponse;
+import com.roomledger.app.exthandler.InvalidInputException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
 import com.roomledger.app.model.Payment;
-import com.roomledger.app.model.Room;
 import com.roomledger.app.repository.BookingRepository;
 import com.roomledger.app.repository.PaymentRepository;
-import com.roomledger.app.repository.RoomRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,21 +19,19 @@ public class PaymentService {
 
     private final BookingRepository bookings;
     private final PaymentRepository payments;
-    private final RoomRepository rooms;
+
     private final ClockService clock;
 
     public PaymentService(BookingRepository bookings,
                                  PaymentRepository payments,
-                                 RoomRepository rooms,
                                  ClockService clock) {
         this.bookings = bookings;
         this.payments = payments;
-        this.rooms = rooms;
         this.clock = clock;
     }
 
     @Transactional
-    public BookingPaymentResponse pay(UUID bookingId, BookingPaymentRequest req) throws InvalidTransactionException {
+    public BookingPaymentResponse pay(UUID bookingId, BookingPaymentRequest req) throws InvalidTransactionException, InvalidInputException {
         Booking b = bookings.findById(bookingId)
                 .orElseThrow(() -> new InvalidTransactionException("Booking not found: " + bookingId));
 
@@ -43,11 +40,11 @@ public class PaymentService {
         }
 
         final String scope = (req.scope() == null ? "DEPOSIT" : req.scope().trim().toUpperCase(Locale.ROOT));
-        if (!scope.equals("DEPOSIT") && !scope.equals("FULL")) {
-            throw new InvalidTransactionException("scope must be DEPOSIT or FULL");
+        if (!scope.equals("DEPOSIT") && !scope.equals("FULL") && !scope.equals("RENT")) {
+            throw new InvalidInputException("scope must be DEPOSIT, RENT or FULL");
         }
         if (req.method() == null || req.method().isBlank()) {
-            throw new InvalidTransactionException("method is required");
+            throw new InvalidInputException("method is required");
         }
 
         final LocalDateTime now     = LocalDateTime.now(clock.zone());
@@ -55,42 +52,40 @@ public class PaymentService {
         final String method         = req.method().trim().toUpperCase(Locale.ROOT);
         final String reference      = (req.reference() == null ? null : req.reference().trim());
 
-        // --- 1) Pastikan DEPOSIT paid/verified (idempotent) ---
-        // Coba update dari PENDING -> PAID
-        int depUpdated = payments.markDepositPaidByBooking(
-                bookingId, method, reference, paidAt, now
-        ); // <- harus return int
+        // Update pending DEPOSIT
+        int depUpdated = 0;
+        if (!scope.equals("RENT")) {
+            depUpdated = payments.markDepositPaidByBooking(
+                    bookingId, method, reference, paidAt, now
+            );
+        }
 
-        // Jika tidak ada baris yang berubah, cek apakah memang sudah PAID/VERIFIED (idempotent)
+
         boolean depositAlreadyPaidOrVerified =
                 depUpdated > 0
                         || payments.existsByBookingIdAndTypeAndStatus(bookingId, Payment.Type.DEPOSIT, Payment.Status.PAID)
                         || payments.existsByBookingIdAndTypeAndStatus(bookingId, Payment.Type.DEPOSIT, Payment.Status.VERIFIED);
 
-        // --- 2) Jika deposit sudah paid/verified, aktifkan booking (idempotent) ---
         if (depositAlreadyPaidOrVerified && b.getStatus() != Booking.Status.ACTIVE) {
             b.setStatus(Booking.Status.ACTIVE);
             b.setUpdatedAt(now);
             bookings.saveAndFlush(b);
         }
 
-        // --- 3) Jika FULL, lunasi semua RENT yang masih pending ---
         int rentUpdated = 0;
-        if (scope.equals("FULL")) {
+        if (scope.equals("FULL") || scope.equals("RENT")) {
             rentUpdated = payments.markAllPendingRentPaidByBooking(
                     bookingId, method, reference, paidAt, now
             );
         }
 
-        // --- 4) Ambil ID payment DEPOSIT untuk response (opsional) ---
+        // Ambil ID payment DEPOSIT untuk response ---
         List<Payment> paidOrVerified = payments
                 .findByBookingIdAndTypeInAndStatusInOrderByPaidAtDesc(
                         bookingId,
                         List.of(Payment.Type.DEPOSIT, Payment.Type.RENT),
                         List.of(Payment.Status.PAID)
                 );
-
-        // kalau mau list khusus menurut type:
         Optional<Payment> depositPaymentOpt = paidOrVerified.stream()
                 .filter(p -> p.getType() == Payment.Type.DEPOSIT)
                 .findFirst();
@@ -99,13 +94,16 @@ public class PaymentService {
                 .filter(p -> p.getType() == Payment.Type.RENT)
                 .findFirst();
 
+        UUID depositId = depositPaymentOpt.map(Payment::getId).orElse(null);
+        UUID rentId    = rentPaymentOpt.map(Payment::getId).orElse(null);
+
         return new BookingPaymentResponse(
                 scope,
                 depUpdated,
                 rentUpdated,
                 b.getStatus().name(),
-                depositPaymentOpt.get().getId(),
-                rentPaymentOpt.get().getId()
+                depositId,
+                rentId
         );
     }
 

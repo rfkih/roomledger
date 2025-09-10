@@ -104,5 +104,18 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             Room.Status availableStatus
     );
 
+    @Query("""
+    select b from Booking b
+      join fetch b.tenant t
+      left join fetch b.room r
+    where t.phone = :phone                                    
+      and b.status = "ACTIVE"
+      and (b.endDate is null or b.endDate >= :today)
+  """)
+    List<Booking> findActiveByPhoneFetch(
+            @Param("phone") String phone,
+            @Param("today") LocalDate today
+    );
+
 
 }

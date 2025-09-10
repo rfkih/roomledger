@@ -120,5 +120,14 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                                    Payment.Status cancelledStatus,
                                    LocalDateTime updatedAt);
 
+    @Query("""
+    select p from Payment p
+    where p.booking.id in :bookingIds
+      and p.status = "PENDING"
+    order by p.periodMonth nulls last, p.createdAt
+  """)
+    List<Payment> findPendingByBookingIds(@Param("bookingIds") Collection<UUID> bookingIds);
+
+
 }
 

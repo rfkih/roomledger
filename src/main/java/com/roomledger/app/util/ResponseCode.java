@@ -11,12 +11,11 @@ public enum ResponseCode {
 
     // Internal Response
     INVALID_TRANSACTION("12", "Invalid Transaction"),
-    INVALID_AMOUNT("13", "Jumlah Tidak Sesuai"),
-    ACCOUNT_NOT_FOUND("14", "Rekening/Data Tidak ditemukan"),
-    INVALID_ACCOUNT("15", "Rekening Blokir / Tidak Aktif"),
-    WRONG_FORMAT_DATA("30", "Format Data Salah"),
-    TAGIHAN_SUDAH_TERBAYAR("88","Tagihan Bulan ini Sudah Terbayar"),
-    INVALID_RESPONSE_CODE("31","Response Code Tidak Sesuai"),
+    INVALID_AMOUNT("13", "Amount is Invalid"),
+    ACCOUNT_NOT_FOUND("14", "Account Not Found"),
+    INVALID_ACCOUNT("15", "Account is Inactive"),
+    WRONG_FORMAT_DATA("30", "Wrong Format Data"),
+    INVALID_RESPONSE_CODE("31","Response Code is Invalid"),
 
     // Client Errors
     BAD_REQUEST_REQUIRED_FIELD_MISSING("01", "Bad Request - Required Field Missing"),

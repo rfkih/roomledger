@@ -12,7 +12,6 @@ import com.roomledger.app.util.ResponseService;
 import com.roomledger.app.util.ResponseUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +31,7 @@ public class BillingController {
         this.billing = billing;
     }
 
+    /** Returns all current unpaid bills (pending payments) for the tenant identified by the given phone number. */
     @GetMapping("/active")
     public ResponseService active(@RequestParam String phone) {
         List<ActiveBillingResponse> resp = billing.activeByPhone(phone);
@@ -44,6 +44,7 @@ public class BillingController {
         ).getBody();
     }
 
+    /** Calculates a billing quote (with prorated breakdown and totals) for the specified room between the given start and end dates. */
     @PostMapping("/quote")
     public ResponseService     quote(@RequestBody BillingQuoteRequest req) {
             Room room = rooms.findById(req.roomId())

@@ -1,6 +1,7 @@
 package com.roomledger.app.controller;
 
 import com.roomledger.app.dto.RegisterTenantRequest;
+import com.roomledger.app.exthandler.InvalidAccountException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Tenant;
 import com.roomledger.app.repository.TenantRepository;
@@ -9,12 +10,9 @@ import com.roomledger.app.util.ResponseService;
 import com.roomledger.app.util.ResponseUtil;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.net.URI;
-import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -32,9 +30,8 @@ public class TenantController {
 
     @PostMapping("/register")
     public ResponseService register(@Valid @RequestBody RegisterTenantRequest req) throws InvalidTransactionException {
-        // Enforce unique phone (conflict if already taken)
         if (tenantRepository.findByPhone(req.phone()).isPresent()) {
-            throw new InvalidTransactionException("Phone already registered");
+            throw new InvalidAccountException("Phone already registered");
         }
 
         Tenant t = new Tenant();

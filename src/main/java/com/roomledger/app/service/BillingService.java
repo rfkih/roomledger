@@ -2,6 +2,7 @@ package com.roomledger.app.service;
 
 import com.roomledger.app.dto.ActiveBillingResponse;
 import com.roomledger.app.dto.BillingQuoteResponse;
+import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
 import com.roomledger.app.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
@@ -91,7 +92,8 @@ public class BillingService {
             }
 
             if (billableDays > 0) {
-                int daysInMonth = monthEnd.getDayOfMonth();
+//                int daysInMonth = monthEnd.getDayOfMonth();
+                int daysInMonth = 31;
                 BigDecimal daily = safeDailyRate(monthlyPrice, daysInMonth);
                 BigDecimal lineSubtotal = daily
                         .multiply(BigDecimal.valueOf(billableDays))
@@ -136,18 +138,18 @@ public class BillingService {
             LocalDate bookingStart,
             LocalDate bookingEndOrNull,
             YearMonth period
-    ) {
+    ) throws InvalidTransactionException {
         Objects.requireNonNull(monthlyPrice, "monthlyPrice is required");
         Objects.requireNonNull(bookingStart, "bookingStart is required");
         Objects.requireNonNull(period, "period is required");
         if (monthlyPrice.signum() < 0) {
-            throw new IllegalArgumentException("monthlyPrice must be >= 0");
+            throw new InvalidTransactionException("monthlyPrice must be >= 0");
         }
 
         LocalDate monthStart = period.atDay(1);
         LocalDate monthEnd   = period.atEndOfMonth();
 
-        // Clip the period by the (optional) booking end
+
         LocalDate effectiveEnd = Optional.ofNullable(bookingEndOrNull).orElse(monthEnd);
 
         if (effectiveEnd.isBefore(monthStart) || bookingStart.isAfter(monthEnd)) {
