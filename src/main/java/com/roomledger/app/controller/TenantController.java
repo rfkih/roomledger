@@ -1,6 +1,7 @@
 package com.roomledger.app.controller;
 
 import com.roomledger.app.dto.RegisterTenantRequest;
+import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Tenant;
 import com.roomledger.app.repository.TenantRepository;
 import com.roomledger.app.util.ResponseCode;
@@ -30,11 +31,10 @@ public class TenantController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterTenantRequest req) {
+    public ResponseService register(@Valid @RequestBody RegisterTenantRequest req) throws InvalidTransactionException {
         // Enforce unique phone (conflict if already taken)
         if (tenantRepository.findByPhone(req.phone()).isPresent()) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body(Map.of("error", "Phone already registered", "phone", req.phone()));
+            throw new InvalidTransactionException("Phone already registered");
         }
 
         Tenant t = new Tenant();
@@ -44,9 +44,13 @@ public class TenantController {
         t.setGender(req.gender());
         t = tenantRepository.save(t);
 
-        return ResponseEntity
-                .created(URI.create("/api/tenants/" + t.getId()))
-                .body(Map.of("id", t.getId(), "name", t.getName(), "phone", t.getPhone()));
+        return ResponseUtil.setResponse(
+                HttpStatus.OK.value(),
+                applicationCode,
+                ResponseCode.SUCCESS.getCode(),
+                ResponseCode.SUCCESS.getDescription(),
+                t
+                ).getBody();
     }
 
 

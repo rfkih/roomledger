@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Component
 public class DepositExpiryJob {
@@ -36,41 +38,10 @@ public class DepositExpiryJob {
         this.clock = clock;
     }
 
-
-
     @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")//run for every 1 minute
     @Transactional
     public void cancelDraftsWithoutDeposit() {
         final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 1);
-        log.info("Checking for deposits older than {} minutes", ttl);
-
-        LocalDateTime cutoffLocal = LocalDateTime.now().minusMinutes(ttl);
-
-        List<Payment> overdueDeposits = payments.findByTypeAndStatusAndCreatedAtBefore(
-                Payment.Type.DEPOSIT, Payment.Status.PENDING, cutoffLocal);
-
-        int cancelledCount = 0;
-
-        for (Payment dep : overdueDeposits) {
-            Booking b = dep.getBooking();
-            if (b == null) continue;
-
-            if (b.getStatus() != Booking.Status.DRAFT) continue;
-
-            log.info("Booking {} has overdue deposit {}", b.getId(), dep.getId());
-
-            b.setStatus(Booking.Status.CANCELLED);
-            b.setAutoRenew(false);
-            b.setUpdatedAt(clock.now());
-            bookings.save(b);
-            payments.cancelPendingByBooking(b.getId());
-            cancelledCount++;
-        }
-        log.info("Cancelled {} overdue deposits/booking(s).", cancelledCount);
-    }
-
-    public void cancelDraftsWithoutDeposits() {
-        final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 60);
         log.info("Checking for deposits older than {} minutes", ttl);
 
         var cutoff = java.time.LocalDateTime.now().minusMinutes(ttl);
@@ -79,12 +50,11 @@ public class DepositExpiryJob {
         var overdueDeposits = payments.findByTypeAndStatusAndCreatedAtBefore(
                 Payment.Type.DEPOSIT, Payment.Status.PENDING, cutoff);
 
-        // Extract booking IDs
         var bookingIdsToCancel = overdueDeposits.stream()
                 .map(Payment::getBooking)
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .map(Booking::getId)
-                .collect(java.util.stream.Collectors.toSet());  // <— collector
+                .collect(Collectors.toSet());
 
         if (bookingIdsToCancel.isEmpty()) {
             log.info("Cancelled 0 overdue deposits/booking(s).");
@@ -93,7 +63,7 @@ public class DepositExpiryJob {
 
         List<Booking> drafts = bookings.findByIdInAndStatus(bookingIdsToCancel, Booking.Status.DRAFT);
 
-        // Update bookings + cancel their pending payments
+        // Update bookings and cancel pending payments
         drafts.forEach(b -> {
             b.setStatus(Booking.Status.CANCELLED);
             b.setAutoRenew(false);

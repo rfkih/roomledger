@@ -55,7 +55,7 @@ public class Payment {
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at") // nullable is fine
+    @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
 

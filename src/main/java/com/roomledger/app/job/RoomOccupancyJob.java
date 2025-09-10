@@ -31,14 +31,14 @@ public class RoomOccupancyJob {
      * Runs every 10 minutes (configurable).
      */
     @Transactional
-//    @Scheduled(cron = "0 5 2 * * *", zone = "Asia/Jakarta")
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")//run for every 1 minute
+    @Scheduled(cron = "0 5 2 * * *", zone = "Asia/Jakarta")
+//    @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")
     public void roomVerification() {
         final LocalDate today = clock.today();
         final LocalDateTime now = LocalDateTime.now(clock.zone());
         log.info("[RoomOccupancyJob] Running at {}", now);
 
-        // Pass A: OCCUPY room when rent is VERIFIED
+        // OCCUPY room when rent is VERIFIED
         List<Booking> toOccupy = bookings
                 .findActiveStartingTodayWithVerifiedRentAndRoomNotOccupied(
                         today,
@@ -59,7 +59,7 @@ public class RoomOccupancyJob {
             }
         }
 
-        // Pass B: RELEASE room when start is today and rent still PENDING (no VERIFIED),
+        //  RELEASE room when start is today and rent still PENDING (no VERIFIED),
         //         and cancel all PENDING rent payments for the booking
         List<Booking> toRelease = bookings
                 .findActiveStartingTodayWithPendingRentOnlyAndRoomNotAvailable(
