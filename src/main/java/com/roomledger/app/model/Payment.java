@@ -25,7 +25,7 @@ import java.util.UUID;
 )
 @Setter @Getter
 @EntityListeners(AuditingEntityListener.class)
-public class Payment {
+public class Payment extends Audit {
 
     public enum Type { DEPOSIT, RENT }
 
@@ -48,6 +48,14 @@ public class Payment {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booking_id", nullable = false)
     private Booking booking;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private Owner owner;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "building_id", nullable = false)
+    private Building building;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -107,7 +115,7 @@ public class Payment {
     private String currency = "IDR";
 
     @Column(name = "expires_at")
-    private OffsetDateTime expiresAt;
+    private LocalDateTime expiresAt;
 
     @Column(name = "actions_json", columnDefinition = "text")
     private String actionsJson;                  // raw actions[] from Xendit response
@@ -115,13 +123,6 @@ public class Payment {
     @Column(name = "channel_properties_json", columnDefinition = "text")
     private String channelPropertiesJson;        // what you sent/received (optional)
 
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }
 
 

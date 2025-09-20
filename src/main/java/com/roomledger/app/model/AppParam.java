@@ -8,7 +8,7 @@ import java.time.OffsetDateTime;
 @Entity @Table(name = "app_params")
 @Setter
 @Getter
-public class AppParam {
+public class AppParam extends Audit {
     @Id
     private String key;
 
@@ -17,7 +17,4 @@ public class AppParam {
 
     @Column(nullable = false)
     private String value;
-
-    @Column(name="updated_at", nullable=false)
-    private OffsetDateTime updatedAt = OffsetDateTime.now();
 }

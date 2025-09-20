@@ -6,9 +6,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.Type;
+import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -19,7 +22,7 @@ import java.util.UUID;
 )
 @Getter @Setter
 @EntityListeners(AuditingEntityListener.class)
-public class WebhookInbox {
+public class WebhookInbox  extends Audit {
 
     @Id @GeneratedValue
     private UUID id;
@@ -38,6 +41,8 @@ public class WebhookInbox {
     private boolean processed = false;
 
     @CreatedDate
-    @Column(name = "received_at", nullable = false, updatable = false)
-    private OffsetDateTime receivedAt;
+    @Column(name="received_at", updatable=false, nullable=false)
+    private LocalDateTime receivedAt;
+
+
 }

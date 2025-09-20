@@ -76,7 +76,7 @@ public class XenditClientService {
 
     /* ============ GET/LIST ============ */
 
-    public Map<String, Object> getPaymentRequest(String paymentRequestId) {
+    public Map getPaymentRequest(String paymentRequestId) {
         return xendit.get()
                 .uri("/v3/payment_requests/{id}", paymentRequestId)
                 .retrieve()
@@ -86,8 +86,10 @@ public class XenditClientService {
                 .body(Map.class);
     }
 
-    /** List payment requests for your reference id (e.g., customer id). */
-    public Map<String, Object> listPaymentRequestsByReference(String referenceId, Integer limit, String afterId) {
+    /**
+     * List payment requests for your reference id (e.g., customer id).
+     */
+    public Map listPaymentRequestsByReference(String referenceId, Integer limit, String afterId) {
         return xendit.get()
                 .uri(uri -> {
                     var b = uri.path("/payment_requests").queryParam("reference_id", referenceId);
@@ -116,7 +118,7 @@ public class XenditClientService {
         // merge extras
         body.putAll(extra);
 
-        Map<String, Object> resp = xendit.post()
+        Map resp = xendit.post()
                 .uri("/v3/payment_requests")
                 .header("Idempotency-Key", idem)
                 .body(body)
@@ -154,7 +156,7 @@ public class XenditClientService {
         return new ReusableCodeResult(prId, referenceId, channel, kind, codeValue, expiresAt, resp);
     }
 
-    private Map<String, Object> post(String uri, Map<String, Object> body) {
+    private Map post(String uri, Map<String, Object> body) {
         String idem = UUID.randomUUID().toString();
         return xendit.post()
                 .uri(uri)

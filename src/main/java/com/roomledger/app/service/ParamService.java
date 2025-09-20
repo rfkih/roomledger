@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.NoSuchElementException;
 
@@ -44,7 +46,7 @@ public class ParamService {
     public void set(String key, String type, String value) {
         AppParam p = repo.findById(key).orElseGet(AppParam::new);
         p.setKey(key); p.setType(type); p.setValue(value);
-        p.setUpdatedAt(java.time.OffsetDateTime.now());
+        p.setUpdatedAt(LocalDateTime.now());
         repo.save(p);
     }
 }

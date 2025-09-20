@@ -12,7 +12,7 @@ import java.util.UUID;
 @Setter
 @Getter
 @Table(name = "rooms")
-public class Room {
+public class Room extends Audit {
 
     public enum Status { AVAILABLE, OCCUPIED, MAINTENANCE }
 

@@ -17,7 +17,7 @@ import java.util.UUID;
 @Setter
 @Getter
 @EntityListeners(AuditingEntityListener.class)
-public class Booking {
+public class Booking extends Audit {
 
     public enum Status { DRAFT, ACTIVE, ENDED, CANCELLED }
 
@@ -51,14 +51,6 @@ public class Booking {
 
     @Column(name = "auto_renew", nullable = false)
     private boolean autoRenew = true;
-
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 
 }
 

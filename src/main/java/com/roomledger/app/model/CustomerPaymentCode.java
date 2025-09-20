@@ -28,7 +28,7 @@ import java.util.UUID;
 )
 @Getter @Setter
 @EntityListeners(AuditingEntityListener.class)
-public class CustomerPaymentCode {
+public class CustomerPaymentCode extends Audit {
 
     public enum Kind { VIRTUAL_ACCOUNT, QR }
     public enum Status { ACTIVE, INACTIVE, EXPIRED }
@@ -70,11 +70,4 @@ public class CustomerPaymentCode {
     @Column(name = "metadata", columnDefinition = "jsonb")
     private JsonNode metadata;
 
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

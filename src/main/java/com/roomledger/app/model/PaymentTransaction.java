@@ -24,7 +24,7 @@ import java.util.UUID;
 )
 @Getter @Setter
 @EntityListeners(AuditingEntityListener.class)
-public class PaymentTransaction {
+public class PaymentTransaction extends Audit {
 
     public enum Status { PAID, FAILED, REFUNDED }
 
@@ -79,7 +79,4 @@ public class PaymentTransaction {
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
     private JsonNode payload; // raw webhook for audit
 
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
 }

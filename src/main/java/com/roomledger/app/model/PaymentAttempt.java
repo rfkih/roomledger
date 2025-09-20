@@ -24,7 +24,7 @@ import java.util.UUID;
 )
 @Getter @Setter
 @EntityListeners(AuditingEntityListener.class)
-public class PaymentAttempt {
+public class PaymentAttempt extends Audit {
 
     public enum Type { PAY, REUSABLE_PAYMENT_CODE }
     public enum Status { PENDING, PAID, FAILED, EXPIRED }
@@ -69,11 +69,4 @@ public class PaymentAttempt {
 //    @Column(columnDefinition = "actions", nullable = false)
 //    private JsonNode actions;
 
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private OffsetDateTime createdAt;
-
-    @LastModifiedDate
-    @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt;
 }

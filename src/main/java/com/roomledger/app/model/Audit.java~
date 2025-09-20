@@ -1,0 +1,4 @@
+package com.roomledger.app.model;
+
+public class Audit {
+}

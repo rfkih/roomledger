@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,39 +23,47 @@ public class BookingService {
     private final PaymentRepository payments;
     private final BillingService billing;
     private final ClockService clockService;
+    private final OwnerRepository ownerRepository;
+    private final BuildingRepository buildingRepository;
 
     public BookingService(BookingRepository bookings,
                           RoomRepository rooms,
                           TenantRepository tenants,
                           PaymentRepository payments,
-                          BillingService billing, ClockService clockService) {
+                          BillingService billing, ClockService clockService, OwnerRepository ownerRepository, BuildingRepository buildingRepository) {
         this.bookings = bookings;
         this.rooms = rooms;
         this.tenants = tenants;
         this.payments = payments;
         this.billing = billing;
         this.clockService = clockService;
+        this.ownerRepository = ownerRepository;
+        this.buildingRepository = buildingRepository;
     }
 
     /** Create a DRAFT booking + DEPOSIT payment + initial RENT bill(s). */
     @Transactional
     public DraftBookingResult createDraftBookingWithBills(CreateBookingRequest req) throws InvalidTransactionException {
         Tenant tenant = tenants.findById(req.tenantId())
-                .orElseThrow(() -> new IllegalArgumentException("Tenant not found"));
+                .orElseThrow(() -> new InvalidTransactionException("Tenant not found"));
         Room room = rooms.findById(req.roomId())
-                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
+                .orElseThrow(() -> new InvalidTransactionException("Room not found"));
+
+        Building bldg = room.getBuilding();
+        if (bldg == null) throw new InvalidTransactionException("Room has no building");
+        Owner owner = bldg.getOwner();
+        if (owner == null) throw new InvalidTransactionException("Building has no owner");
 
         LocalDate start = req.startDate();
         LocalDate end   = req.endDate();
         if (start == null || end == null || end.isBefore(start)) {
-            throw new IllegalArgumentException("Invalid start/end");
+            throw new InvalidTransactionException("Invalid start/end");
         }
 
-        // prevent overlap with existing non-cancelled bookings
         boolean overlap = bookings.existsOverlap(room.getId(), start, end, Booking.Status.CANCELLED);
         if (overlap) throw new InvalidTransactionException("Room already booked in that period");
 
-        // Create booking in DRAFT (does NOT occupy yet)
+        // Booking draft
         Booking b = new Booking();
         b.setTenant(tenant);
         b.setRoom(room);
@@ -63,31 +72,37 @@ public class BookingService {
         b.setMonthlyPrice(room.getMonthlyPrice());
         b.setStatus(Booking.Status.DRAFT);
         b.setAutoRenew(true);
-        // deposit default = 1x monthly unless provided
-        BigDecimal depositAmt = (req.depositAmount() != null) ? req.depositAmount() : room.getMonthlyPrice();
-        b.setDepositAmount(depositAmt);
+        // if Booking has owner/building fields, set them too:
+//         b.setOwner(owner); b.setBuilding(bldg);
         b = bookings.save(b);
 
-        // Create DEPOSIT payment (PENDING)
+        // Deposit
+        BigDecimal depositAmt = (req.depositAmount() != null) ? req.depositAmount() : room.getMonthlyPrice();
         Payment dep = new Payment();
         dep.setBooking(b);
+        dep.setOwner(owner);
+        dep.setBuilding(bldg);
         dep.setType(Payment.Type.DEPOSIT);
         dep.setStatus(Payment.Status.PENDING);
         dep.setAmount(depositAmt);
+        dep.setCurrency("IDR");
         dep = payments.save(dep);
 
+        // First rent bill
         BillingQuoteResponse quote = billing.quoteForPeriod(room.getId(), room.getMonthlyPrice(), start, end);
-
         Payment rent = new Payment();
         rent.setBooking(b);
+        rent.setOwner(owner);          // <-- REQUIRED
+        rent.setBuilding(bldg);        // <-- REQUIRED
         rent.setType(Payment.Type.RENT);
         rent.setStatus(Payment.Status.PENDING);
         rent.setAmount(quote.totalAfterDiscount());
+        rent.setCurrency("IDR");
         payments.save(rent);
-
 
         return new DraftBookingResult(b.getId(), dep.getId());
     }
+
 
     /** After DEPOSIT is verified, activate booking and (optionally) mark room OCCUPIED. */
     @Transactional
