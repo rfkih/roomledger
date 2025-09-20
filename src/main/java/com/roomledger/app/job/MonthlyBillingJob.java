@@ -26,9 +26,9 @@ public class MonthlyBillingJob {
         this.clockService = clockService;
     }
 
-//    @Scheduled(cron = "0 5 2 * * *", zone = "Asia/Jakarta")
+    @Scheduled(cron = "0 5 2 * * *", zone = "Asia/Jakarta")
     @Transactional
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")
+//    @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")
     public void ensureNextMonthBillsAndRenewals() throws InvalidTransactionException {
         LocalDate today = clockService.today();
         log.info("Monthly Billing Job running at {}", today);

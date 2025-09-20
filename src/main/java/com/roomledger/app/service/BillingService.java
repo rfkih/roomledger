@@ -4,6 +4,9 @@ import com.roomledger.app.dto.ActiveBillingResponse;
 import com.roomledger.app.dto.BillingQuoteResponse;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
+import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Room;
+import com.roomledger.app.model.Tenant;
 import com.roomledger.app.repository.PaymentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -204,11 +207,11 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<ActiveBillingResponse> activeByPhone(String phone) {
-        var list = payments.findActiveBillingByPhoneFetch(phone, Booking.Status.CANCELLED);
+        List<Payment> list = payments.findActiveBillingByPhoneFetch(phone, Booking.Status.CANCELLED);
         return list.stream().map(p -> {
-            var b = p.getBooking();
-            var t = b.getTenant();
-            var r = b.getRoom();
+            Booking b = p.getBooking();
+            Tenant t = b.getTenant();
+            Room r = b.getRoom();
             return new ActiveBillingResponse(
                     p.getId(),
                     p.getType().name(),

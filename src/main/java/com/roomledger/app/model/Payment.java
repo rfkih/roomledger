@@ -15,13 +15,32 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "payments")
-@Setter
-@Getter
+@Table(
+        name = "payments",
+        indexes = {
+                @Index(name = "ix_pay_booking", columnList = "booking_id"),
+                @Index(name = "ux_pay_pr_id", columnList = "prId", unique = true),          // Xendit payment_request_id
+                @Index(name = "ux_pay_provider_payment", columnList = "providerPaymentId", unique = true)
+        }
+)
+@Setter @Getter
 @EntityListeners(AuditingEntityListener.class)
 public class Payment {
+
     public enum Type { DEPOSIT, RENT }
-    public enum Status { PENDING, PAID, VERIFIED, CANCELLED }
+
+    // expand to align with gateway events
+    public enum Status {
+        PENDING,                // created locally, before calling Xendit
+        WAITING_FOR_PAYMENT,    // created at Xendit, waiting customer action
+        PAID,                   // paid (from webhook)
+        FAILED,                 // failed (from webhook)
+        EXPIRED,                // expired (from webhook)
+        CANCELLED,              // you cancelled
+        VERIFIED                // your own manual post-check (optional)
+    }
+
+    public enum GatewayFlow { PAY, REUSABLE_PAYMENT_CODE } // Xendit flow types
 
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -41,14 +60,60 @@ public class Payment {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    private String method;
-    private String reference;
+    // --- (legacy) optional: keep but prefer new fields below
+    @Deprecated private String method;     // prefer channelCode
+    @Deprecated private String reference;  // prefer referenceId
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
     @Column(name = "period_month")
     private LocalDate periodMonth;
+
+    // ===== Gateway/Xendit fields =====
+    @Column(length = 16, nullable = false)
+    private String provider = "XENDIT";          // if you add more providers later
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "flow", length = 32)
+    private GatewayFlow flow;                    // PAY / REUSABLE_PAYMENT_CODE
+
+    @Column(name = "channel_code", length = 64)
+    private String channelCode;                  // e.g. BCA_VIRTUAL_ACCOUNT, ID_QRIS
+
+    @Column(name = "reference_id", length = 128)
+    private String referenceId;                  // maps to Xendit reference_id (use bookingId or customerId)
+
+    @Column(name = "prId", length = 64)
+    private String prId;                         // payment_request_id from Xendit
+
+    @Column(name = "providerPaymentId", length = 64)
+    private String providerPaymentId;            // capture/payment id from webhook (if present)
+
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;               // the Idempotency-Key you used on create
+
+    // What you show to users
+    @Column(name = "invoice_url", length = 512)
+    private String invoiceUrl;                   // if you also use Payment Links
+
+    @Column(name = "qris_qr_string", columnDefinition = "text")
+    private String qrisQrString;                 // for QRIS flow
+
+    @Column(name = "va_number", length = 32)
+    private String vaNumber;                     // for VA flows
+
+    @Column(name = "currency", length = 3)
+    private String currency = "IDR";
+
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
+    @Column(name = "actions_json", columnDefinition = "text")
+    private String actionsJson;                  // raw actions[] from Xendit response
+
+    @Column(name = "channel_properties_json", columnDefinition = "text")
+    private String channelPropertiesJson;        // what you sent/received (optional)
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -58,4 +123,5 @@ public class Payment {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
+
 

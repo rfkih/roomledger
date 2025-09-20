@@ -1,6 +1,5 @@
 package com.roomledger.app.repository;
 
-import com.roomledger.app.model.Booking;
 import com.roomledger.app.model.Room;
 
 import org.springframework.data.jpa.repository.JpaRepository;
