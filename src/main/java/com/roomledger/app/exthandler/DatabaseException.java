@@ -1,7 +1,7 @@
 package com.roomledger.app.exthandler;
 
-public class DataAccessException extends RuntimeException {
-    public DataAccessException(String message) {
+public class DatabaseException extends RuntimeException {
+    public DatabaseException(String message) {
         super(message);
     }
 }

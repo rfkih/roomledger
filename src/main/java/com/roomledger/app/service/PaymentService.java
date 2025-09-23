@@ -31,10 +31,11 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepo;
 
     private final ClockService clock;
+    private final PaymentAttemptRepository paymentAttemptRepository;
 
     public PaymentService(BookingRepository bookings,
                           PaymentRepository payments, XenditClientService xendit, PaymentAttemptRepository attemptRepo, CustomerPaymentCodeRepository codeRepo, ObjectMapper m, PaymentTransactionRepository paymentTransactionRepo,
-                          ClockService clock) {
+                          ClockService clock, PaymentAttemptRepository paymentAttemptRepository) {
         this.bookingRepo = bookings;
         this.paymentRepo = payments;
         this.xendit = xendit;
@@ -43,6 +44,7 @@ public class PaymentService {
         M = m;
         this.paymentTransactionRepo = paymentTransactionRepo;
         this.clock = clock;
+        this.paymentAttemptRepository = paymentAttemptRepository;
     }
 
 
@@ -170,6 +172,7 @@ public class PaymentService {
                                            long amount,
                                            String bankChannelCode,
                                            String displayName,
+                                           String referenceId,
                                            Long expectedAmountNullable
     ) throws InvalidTransactionException {
         Booking booking = bookingRepo.findById(bookingId)
@@ -178,27 +181,20 @@ public class PaymentService {
         Building bldg = booking.getRoom().getBuilding();
         Owner owner = bldg.getOwner();
 
-        // Check if the booking already has an associated VA number
-        List<Payment> existingPayment = paymentRepo.findByBookingAndStatusAndChannelCode(booking, Payment.Status.WAITING_FOR_PAYMENT, bankChannelCode);
 
-        if (!existingPayment.isEmpty()) {
-            throw new InvalidTransactionException("VA already generated for this booking: " + existingPayment.getFirst().getVaNumber() + " expiry :" + existingPayment.getFirst().getExpiresAt());
+        Optional<PaymentAttempt> paymentAttempt = paymentAttemptRepository.findAllByBookingIdAndStatus(String.valueOf(bookingId), String.valueOf(PaymentAttempt.Status.WAITING_FOR_PAYMENT));
+
+        if (paymentAttempt.isPresent()) {
+            throw new InvalidTransactionException("VA / QR already generated for this booking: " + booking.getId() + " - " + paymentAttempt.get().getStatus());
         }
 
-        // Create local Payment row first (PENDING)
-        Payment p = new Payment();
-        p.setBooking(booking);
-        p.setOwner(owner);
-        p.setBuilding(bldg);
-        p.setType(Payment.Type.RENT);
-        p.setStatus(Payment.Status.PENDING);
-        p.setAmount(booking.getMonthlyPrice());
-        p.setCurrency("IDR");
-        p.setFlow(Payment.GatewayFlow.PAY);
-        p.setChannelCode(bankChannelCode);
-        // referenceId = bookingId (string) is a good default
-        p.setReferenceId(bookingId.toString());
-        p = paymentRepo.save(p);
+
+        List<Payment> payments = paymentRepo.findByBookingIdAndStatus(
+                bookingId, Payment.Status.WAITING_FOR_PAYMENT);
+
+        if (payments.isEmpty()) {
+            throw new InvalidTransactionException("Payment not found for booking: " + bookingId);
+        }
 
         XenditPaymentRequestDTO xenditPaymentRequest = new XenditPaymentRequestDTO();
         ChannelProperties channelProperties = new ChannelProperties();
@@ -213,48 +209,65 @@ public class PaymentService {
         xenditPaymentRequest.setChannelProperties(channelProperties);
 
         // Call Xendit
-        PaymentResponseDTO resp = xendit.createPayVa( xenditPaymentRequest);
+        PaymentResponseDTO resp = xendit.createPay( xenditPaymentRequest);
         log.info("Update payment with gateway data: " + resp.getActions().getFirst().getValue());
-        // Parse response
-        String prId = resp.getPaymentRequestId();
-//        String channel = resp.getChannelCode();
-//        String vaNumber = resp.getVaNumber();
-        LocalDateTime expiresAt = resp.getChannelProperties().getExpiresAt();
 
-        p.setStatus(Payment.Status.WAITING_FOR_PAYMENT);
-        p.setPrId(resp.getPaymentRequestId());
-        p.setChannelCode(resp.getChannelCode());
-        if (bankChannelCode.equals("QRIS")){
-            p.setQrisQrString(resp.getActions().getFirst().getValue());
-        }else {
-            p.setVaNumber(resp.getActions().getFirst().getValue());
+        for (Payment p : payments) {
+            p.setBooking(booking);
+            p.setOwner(owner);
+            p.setBuilding(bldg);
+            p.setCurrency("IDR");
+            p.setFlow(Payment.GatewayFlow.PAY);
+            p.setChannelCode(bankChannelCode);
+            p.setPrId(resp.getPaymentRequestId());
+            p.setChannelCode(resp.getChannelCode());
+            if (bankChannelCode.equals("QRIS")){
+                p.setQrisQrString(resp.getActions().getFirst().getValue());
+            }else {
+                p.setVaNumber(resp.getActions().getFirst().getValue());
+            }
+            p.setExpiresAt(resp.getChannelProperties().getExpiresAt());
+            p.setActionsJson(resp.getActions().toString());
+            p.setChannelPropertiesJson( resp.getChannelProperties().toString());
         }
-        p.setQrisQrString(resp.getQrisQrString());
-        p.setExpiresAt(expiresAt);
-        p.setActionsJson(resp.getActions().toString());
-        p.setChannelPropertiesJson( resp.getChannelProperties().toString());
-        paymentRepo.save(p);
 
-        if (attemptRepo != null) {
-            PaymentAttempt at = new PaymentAttempt();
-            at.setBookingId(bookingId.toString());
-            at.setCustomerId(booking.getTenant().getId().toString());
-            at.setOwner(owner);
-            at.setBuilding(bldg);
-            at.setChannelCode(resp.getChannelCode());
-            at.setType(PaymentAttempt.Type.valueOf("PAY"));
-            at.setStatus(PaymentAttempt.Status.valueOf("PENDING"));
-            at.setRequestAmount(resp.getRequestAmount());
-            at.setCurrency("IDR");
-            at.setPrId(resp.getPaymentRequestId());
-            at.setIdemKey(UUID.randomUUID());
-//            at.setActions(safeJsonMap(resp.get("actions")));
-            attemptRepo.save(at);
-        }
+        paymentRepo.saveAll(payments);
+
+        PaymentAttempt at = new PaymentAttempt();
+        at.setBookingId(bookingId.toString());
+        at.setCustomerId(booking.getTenant().getId().toString());
+        at.setOwner(owner);
+        at.setBuilding(bldg);
+        at.setChannelCode(resp.getChannelCode());
+        at.setType(PaymentAttempt.Type.PAY);
+        at.setStatus(PaymentAttempt.Status.WAITING_FOR_PAYMENT);
+        at.setRequestAmount(resp.getRequestAmount());
+        at.setCurrency("IDR");
+        at.setPrId(resp.getPaymentRequestId());
+        at.setIdemKey(UUID.randomUUID());
+        paymentAttemptRepository.save(at);
+
+        // Build array items for the response
+        List<PaymentStartItem> items = payments.stream()
+                .map(p -> new PaymentStartItem(
+                        p.getId(),
+                        p.getType().name(),
+                        p.getAmount().longValue(),
+                        p.getChannelCode(),
+                        p.getVaNumber(),
+                        p.getQrisQrString(),
+                        p.getExpiresAt()
+                ))
+                .toList();
 
         return new PaymentStartResult(
-                p.getId(), resp.getPaymentRequestId(), resp.getChannelCode(), "IDR", resp.getRequestAmount(),
-                p.getVaNumber(), p.getQrisQrString(), expiresAt, resp
+                bookingId,
+                resp.getPaymentRequestId(),
+                resp.getChannelCode(),
+                "IDR",
+                resp.getRequestAmount(),
+                resp.getChannelProperties().getExpiresAt(),
+                items
         );
     }
 

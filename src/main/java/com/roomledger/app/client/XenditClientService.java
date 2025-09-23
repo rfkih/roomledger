@@ -55,7 +55,7 @@ public class XenditClientService {
     }
 
     /** One-off VA (exact amount) for a bill (type=PAY). */
-    public PaymentResponseDTO createPayVa(XenditPaymentRequestDTO xenditPaymentRequestDTO) {
+    public PaymentResponseDTO createPay(XenditPaymentRequestDTO xenditPaymentRequestDTO) {
         Map<String, Object> body = new LinkedHashMap<>();
         Map<String, Object> props = new LinkedHashMap<>();
 

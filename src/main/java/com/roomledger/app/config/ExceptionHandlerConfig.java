@@ -10,6 +10,8 @@ import com.roomledger.app.util.ResponseCode;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -89,6 +91,20 @@ public class ExceptionHandlerConfig {
         ResponseDto errorResponse = ResponseDto.builder()
                 .responseCode(HttpStatus.INTERNAL_SERVER_ERROR.value()  + ResponseCode.BAD_REQUEST_INVALID_INPUT.getCode())
                 .responseDesc(ResponseCode.BAD_REQUEST_INVALID_INPUT.getDescription() + " - " + e.getMessage())
+                .build();
+        log.error("{} : {} - Invalid Input service for req - {}", e.getClass().getSimpleName(), e.getLocalizedMessage(), req.getRequestURL(), e);
+        return ResponseEntity.status(HttpStatus.OK).body(errorResponse);
+    }
+
+    @ExceptionHandler(value = {
+            InvalidDataAccessResourceUsageException.class,
+            DataIntegrityViolationException.class
+
+    })
+    public ResponseEntity<ResponseDto> databaseException(HttpServletRequest req, Exception e) {
+        ResponseDto errorResponse = ResponseDto.builder()
+                .responseCode(HttpStatus.INTERNAL_SERVER_ERROR.value()  + ResponseCode.DATABASE_ERROR.getCode())
+                .responseDesc(ResponseCode.DATABASE_ERROR.getDescription() + " - " + e.getMessage())
                 .build();
         log.error("{} : {} - Invalid Input service for req - {}", e.getClass().getSimpleName(), e.getLocalizedMessage(), req.getRequestURL(), e);
         return ResponseEntity.status(HttpStatus.OK).body(errorResponse);

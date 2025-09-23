@@ -8,5 +8,6 @@ public record CreateVaPaymentRequest(
         @NotNull @Positive Long amount,
         @NotBlank String channelCode,        // e.g. "BNI_VIRTUAL_ACCOUNT"
         @NotBlank String displayName,        // customer display name on VA
+        @NotBlank String referenceId,
         Long expectedAmount
 ) {}

@@ -19,7 +19,7 @@ import java.util.UUID;
 public class PaymentAttempt extends Audit {
 
     public enum Type { PAY, REUSABLE_PAYMENT_CODE }
-    public enum Status { PENDING, PAID, FAILED, EXPIRED }
+    public enum Status { PENDING, WAITING_FOR_PAYMENT, PAID, FAILED, EXPIRED }
 
     @Id @GeneratedValue
     private UUID id;

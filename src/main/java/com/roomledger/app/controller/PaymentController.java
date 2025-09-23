@@ -45,6 +45,7 @@ public class PaymentController {
                 req.amount(),
                 req.channelCode(),
                 req.displayName(),
+                req.referenceId(),
                 req.expectedAmount()
         );
 

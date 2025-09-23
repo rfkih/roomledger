@@ -1,19 +1,16 @@
 package com.roomledger.app.dto;
 
 import java.time.LocalDateTime;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 
 public record PaymentStartResult(
-        UUID paymentId,
-        String prId,
+        UUID bookingId,
+        String prId,                 // gateway paymentRequestId
         String channelCode,
-        String currency,
+        String currency,             // "IDR"
         long requestAmount,
-        String vaNumber,          // non-null for VA
-        String qrisQrString,      // non-null for QRIS
         LocalDateTime expiresAt,
-        PaymentResponseDTO raw
+        List<PaymentStartItem> items
 ) {}
-
 

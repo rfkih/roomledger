@@ -92,7 +92,7 @@ public class Payment extends Audit {
     private String referenceId;                  // maps to Xendit reference_id (use bookingId or customerId)
 
     @Column(name = "prId", length = 64)
-    private String prId;                         // payment_request_id from Xendit
+    private String prId;
 
     @Column(name = "providerPaymentId", length = 64)
     private String providerPaymentId;            // capture/payment id from webhook (if present)
@@ -100,7 +100,6 @@ public class Payment extends Audit {
     @Column(name = "idempotency_key", length = 64)
     private String idempotencyKey;               // the Idempotency-Key you used on create
 
-    // What you show to users
     @Column(name = "invoice_url", length = 512)
     private String invoiceUrl;                   // if you also use Payment Links
 
