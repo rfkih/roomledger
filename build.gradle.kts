@@ -31,6 +31,7 @@ dependencies {
 	implementation("com.vladmihalcea:hibernate-types-60:2.21.1")
 	runtimeOnly("org.postgresql:postgresql")
 	implementation("org.springframework.boot:spring-boot-starter-security")
+	implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.3")
 	compileOnly("org.projectlombok:lombok")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")

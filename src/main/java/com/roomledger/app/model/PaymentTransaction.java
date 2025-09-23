@@ -1,15 +1,14 @@
 package com.roomledger.app.model;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.vladmihalcea.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.Type;
-import org.springframework.data.annotation.CreatedDate;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -26,25 +25,31 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class PaymentTransaction extends Audit {
 
-    public enum Status { PAID, FAILED, REFUNDED }
+//    public enum Status { PAID, FAILED, EXPIRED, REFUNDED }
 
     @Id @GeneratedValue
     private UUID id;
 
-    // Optional link to your Payments table
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "payment_id")
     private Payment payment;
 
-    // Or link to the reusable code (when you’re using VA/QR per customer)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_payment_code_id")
     private CustomerPaymentCode customerPaymentCode;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "building_id", nullable = false)
+    private Building building;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "owner_id", nullable = false)
+    private Owner owner;
+
     @Column(nullable = false, length = 16)
     private String provider = "XENDIT";
 
-    @Column(name = "provider_payment_id", nullable = false, length = 64)
+    @Column(name = "provider_payment_id", length = 64)
     private String providerPaymentId; // unique per capture
 
     @Column(name = "payment_request_id", length = 64)
@@ -53,21 +58,24 @@ public class PaymentTransaction extends Audit {
     @Column(name = "reference_id", length = 128)
     private String referenceId;
 
-    @Column(name = "channel_code", nullable = false, length = 64)
+    @Column(name = "channel_code", length = 64)
     private String channelCode;
 
+
+    @Column(name = "type", length = 64)
+    private String type;
+
     @Column(nullable = false)
-    private Long amount; // BIGINT (minor units)
+    private Long amount;
 
     @Column(length = 3, nullable = false)
     private String currency = "IDR";
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
-    private Status status;
+    private String status;
 
     @Column(name = "paid_at")
-    private OffsetDateTime paidAt;
+    private LocalDateTime paidAt;
 
     @Column(name = "fee_amount")
     private Long feeAmount;
@@ -75,8 +83,15 @@ public class PaymentTransaction extends Audit {
     @Column(name = "net_amount")
     private Long netAmount;
 
-    @Type(JsonType.class)
+    @Column(name = "total_amount")
+    private Long totalAmount;
+
+//    @Type(JsonType.class)
+//    @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
+//    private JsonNode payload; // raw webhook for audit
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
-    private JsonNode payload; // raw webhook for audit
+    private Map<String, Object> payload;
 
 }

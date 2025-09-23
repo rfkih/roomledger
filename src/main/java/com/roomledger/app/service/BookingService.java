@@ -60,7 +60,7 @@ public class BookingService {
             throw new InvalidTransactionException("Invalid start/end");
         }
 
-        boolean overlap = bookings.existsOverlap(room.getId(), start, end, Booking.Status.CANCELLED);
+        boolean overlap = bookings.existsOverlap(room.getId(), start, end, "CANCELLED");
         if (overlap) throw new InvalidTransactionException("Room already booked in that period");
 
         // Booking draft
@@ -72,8 +72,6 @@ public class BookingService {
         b.setMonthlyPrice(room.getMonthlyPrice());
         b.setStatus(Booking.Status.DRAFT);
         b.setAutoRenew(true);
-        // if Booking has owner/building fields, set them too:
-//         b.setOwner(owner); b.setBuilding(bldg);
         b = bookings.save(b);
 
         // Deposit

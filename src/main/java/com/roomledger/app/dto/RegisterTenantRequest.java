@@ -7,6 +7,6 @@ public record RegisterTenantRequest(
         @NotBlank String name,
         @NotBlank String no_id,
         @NotBlank String gender,
-        @NotBlank String phone   // keep simple: just required
+        @NotBlank String phone
 ) {}
 

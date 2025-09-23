@@ -9,6 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/xendit")
@@ -28,9 +29,9 @@ public class XenditController {
             @Valid @RequestBody CreateReusableVaRequest req
     ) {
         ReusableCodeResult r = xenditClientService.createReusableVa(
-                req.customerId(),
+                UUID.fromString(req.customerId()),
                 req.displayName(),
-                req.channelCode() == null ? "BNI_VIRTUAL_ACCOUNT" : req.channelCode()
+                req.channelCode()
         );
 
         return ResponseEntity.ok(ReusableCodeResponse.from(r));
@@ -46,19 +47,19 @@ public class XenditController {
 
     /* ---------------- One-off payments (PAY) ---------------- */
 
-    @PostMapping("/pay/va")
-    public ResponseEntity<Map<String,Object>> createPayVa(
-            @Valid @RequestBody CreatePayVaRequest req
-    ) {
-        Map<String,Object> resp = xenditClientService.createPayVa(
-                req.bookingRef(),
-                req.amount(),
-                req.channelCode(),
-                req.displayName(),
-                req.expectedAmount()   // nullable; set to enforce closed amount if supported
-        );
-        return ResponseEntity.ok(resp);
-    }
+//    @PostMapping("/pay/va")
+//    public ResponseEntity<Map<String,Object>> createPayVa(
+//            @Valid @RequestBody CreatePayVaRequest req
+//    ) {
+//        Map<String,Object> resp = xenditClientService.createPayVa(
+//                req.bookingRef(),
+//                req.amount(),
+//                req.channelCode(),
+//                req.displayName(),
+//                req.expectedAmount()   // nullable; set to enforce closed amount if supported
+//        );
+//        return ResponseEntity.ok(resp);
+//    }
 
     @PostMapping("/pay/qris")
     public ResponseEntity<Map<String,Object>> createPayQris(
@@ -68,7 +69,7 @@ public class XenditController {
         return ResponseEntity.ok(resp);
     }
 
-    /* ---------------- Queries ---------------- */
+
 
     @GetMapping("/payment-requests/{id}")
     public ResponseEntity<Map<String,Object>> getPaymentRequest(@PathVariable("id") String id) {
@@ -82,13 +83,5 @@ public class XenditController {
             @RequestParam(value = "afterId", required = false) String afterId
     ) {
         return ResponseEntity.ok(xenditClientService.listPaymentRequestsByReference(referenceId, limit, afterId));
-    }
-
-    /* ---------------- Error mapping ---------------- */
-
-    @ExceptionHandler(XenditClientService.XenditClientException.class)
-    public ResponseEntity<Map<String,String>> handleXenditError(XenditClientService.XenditClientException ex) {
-        return ResponseEntity.status(ex.status())
-                .body(Map.of("error", "Xendit API error", "status", String.valueOf(ex.status()), "message", ex.getMessage()));
     }
 }

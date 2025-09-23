@@ -42,7 +42,7 @@ public class CustomerPaymentCode extends Audit {
     private String customerId;
 
     @Column(name = "channel_code", nullable = false, length = 64)
-    private String channelCode; // e.g. BNI_VIRTUAL_ACCOUNT, QRIS
+    private String channelCode; // e.g. BNI_VIRTUAL_ACCOUNT, ID_QRIS
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "building_id", nullable = false)

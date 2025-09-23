@@ -5,5 +5,5 @@ import jakarta.validation.constraints.Positive;
 
 public record CreatePayQrisRequest(
         @NotBlank String bookingRef,
-        @Positive  long amount                // in IDR (minor unit)
+        @Positive  long amount
 ) {}

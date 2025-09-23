@@ -38,10 +38,10 @@ public class DepositExpiryJob {
         this.clock = clock;
     }
 
-    @Scheduled(cron = "0 * * * * *", zone = "Asia/Jakarta")//run for every 1 minute
+    @Scheduled(cron = "* * 1 * * *", zone = "Asia/Jakarta")//run for every 1 minute
     @Transactional
     public void cancelDraftsWithoutDeposit() {
-        final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 60);
+        final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 1000);
         log.info("Checking for deposits older than {} minutes", ttl);
 
         LocalDateTime cutoff = clock.now().minusMinutes(ttl);

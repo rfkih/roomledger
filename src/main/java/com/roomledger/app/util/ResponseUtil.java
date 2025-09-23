@@ -55,12 +55,4 @@ public final class ResponseUtil {
         return setResponse(HttpStatus.OK.value(), responseCode, responseDesc, responseData);
     }
 
-    /** Convenience for error without data. */
-    public static ResponseEntity<ResponseService> error(
-            int httpStatus,
-            Object responseCode,
-            Object responseDesc
-    ) {
-        return setResponse(httpStatus, responseCode, responseDesc, null);
-    }
 }

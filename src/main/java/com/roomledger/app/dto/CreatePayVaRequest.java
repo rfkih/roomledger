@@ -8,5 +8,5 @@ public record CreatePayVaRequest(
         @Positive  long amount,               // in IDR (minor unit)
         @NotBlank String channelCode,         // e.g., "BNI_VIRTUAL_ACCOUNT"
         @NotBlank String displayName,
-        Long expectedAmount                   // optional; set to enforce “closed amount” when supported
+        Long expectedAmount
 ) {}

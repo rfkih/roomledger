@@ -1,10 +1,16 @@
 package com.roomledger.app.client;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.roomledger.app.dto.PaymentResponseDTO;
 import com.roomledger.app.dto.ReusableCodeResult;
+import com.roomledger.app.dto.XenditPaymentRequestDTO;
+import com.roomledger.app.exthandler.ClientErrorException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -22,14 +28,20 @@ public class XenditClientService {
      ============================ */
 
     /** Create REUSABLE VA per customer (auto-generate number). */
-    public ReusableCodeResult createReusableVa(String customerId, String displayName, String bankChannelCode) {
-        return createReusableCode(customerId, Map.of(
+    public ReusableCodeResult createReusableVa(UUID customerId, String displayName, String bankChannelCode) {
+
+
+
+
+        ReusableCodeResult r = createReusableCode(customerId.toString(), Map.of(
                 "channel_code", bankChannelCode,                                // e.g. "BNI_VIRTUAL_ACCOUNT"
                 "channel_properties", Map.of(
                         "display_name", displayName,
                         "expires_at", "2030-12-31T23:59:59Z"
                 )
         ));
+        return r;
+
     }
 
     /** Create REUSABLE static QR (QRIS). */
@@ -42,23 +54,33 @@ public class XenditClientService {
         ));
     }
 
-    /** One-off VA (exact amount) for a bill (type=PAY). Use when you want closed amount. */
-    public Map<String, Object> createPayVa(String bookingRef, long amount, String bankChannelCode,
-                                           String displayName, Long expectedAmount /* nullable */) {
-        Map<String, Object> props = new LinkedHashMap<>();
-        props.put("display_name", displayName);
-        if (expectedAmount != null) props.put("expected_amount", expectedAmount);
-
+    /** One-off VA (exact amount) for a bill (type=PAY). */
+    public PaymentResponseDTO createPayVa(XenditPaymentRequestDTO xenditPaymentRequestDTO) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("reference_id", bookingRef);
+        Map<String, Object> props = new LinkedHashMap<>();
+
+        props.put("display_name", xenditPaymentRequestDTO.getChannelProperties().getDisplayName());
+
+        if (xenditPaymentRequestDTO.getChannelProperties().getExpectedAmount() != null) props.put("expected_amount", xenditPaymentRequestDTO.getChannelProperties().getExpectedAmount());
+
+        body.put("reference_id", xenditPaymentRequestDTO.getReferenceId());
         body.put("type", "PAY");
-        body.put("country", "ID");
-        body.put("currency", "IDR");
-        body.put("request_amount", amount);
-        body.put("channel_code", bankChannelCode);                   // e.g. "BNI_VIRTUAL_ACCOUNT"
+        body.put("country", xenditPaymentRequestDTO.getCountry());
+        body.put("currency", xenditPaymentRequestDTO.getCurrency());
+        body.put("request_amount", xenditPaymentRequestDTO.getRequestAmount());
+        body.put("channel_code", xenditPaymentRequestDTO.getChannelCode()); // e.g. "BNI_VIRTUAL_ACCOUNT"
         body.put("channel_properties", props);
 
-        return post("/v3/payment_requests", body);
+        Map<String, Object> response = post("/v3/payment_requests", body);
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.registerModule(new JavaTimeModule());
+            return objectMapper.convertValue(response, PaymentResponseDTO.class);
+        } catch (Exception e) {
+            // Handle error during deserialization
+            throw new RuntimeException("Error parsing payment response: " + e.getMessage(), e);
+        }
     }
 
     /** One-off QRIS (dynamic, encodes amount). */
@@ -71,17 +93,18 @@ public class XenditClientService {
                 "request_amount", amount,
                 "channel_code", "QRIS"
         );
+        Map<String, Object> response = post("/v3/payment_requests", body);
+
         return post("/v3/payment_requests", body);
     }
 
-    /* ============ GET/LIST ============ */
 
     public Map getPaymentRequest(String paymentRequestId) {
         return xendit.get()
                 .uri("/v3/payment_requests/{id}", paymentRequestId)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new XenditClientException(res.getStatusCode().value(), res.getBody().toString());
+                    throw new ClientErrorException(res.getStatusCode().value() +  res.getBody().toString());
                 })
                 .body(Map.class);
     }
@@ -99,7 +122,7 @@ public class XenditClientService {
                 })
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new XenditClientException(res.getStatusCode().value(), res.getBody().toString());
+                    throw new ClientErrorException( res.getBody().toString());
                 })
                 .body(Map.class);
     }
@@ -115,7 +138,6 @@ public class XenditClientService {
         body.put("type", "REUSABLE_PAYMENT_CODE");
         body.put("country", "ID");
         body.put("currency", "IDR");
-        // merge extras
         body.putAll(extra);
 
         Map resp = xendit.post()
@@ -124,36 +146,37 @@ public class XenditClientService {
                 .body(body)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new XenditClientException(res.getStatusCode().value(), res.getBody().toString());
+                    throw new ClientErrorException( res.getBody().toString());
                 })
                 .body(Map.class);
 
         String prId = (String) resp.get("id");
         String channel = (String) resp.getOrDefault("channel_code", extra.get("channel_code"));
 
-        // extract from actions[]
         Map<String, Object> va = findAction(resp, "VIRTUAL_ACCOUNT_NUMBER");
         Map<String, Object> qr = findAction(resp, "QR_CODE");
 
         String codeValue = null;
-        ReusableCodeResult.Kind kind = null;
+        String kind = null;
 
         if (va != null) {
             codeValue = asString(va.getOrDefault("value", va.get("account_number")));
-            kind = ReusableCodeResult.Kind.VIRTUAL_ACCOUNT;
+            kind = "VIRTUAL_ACCOUNT";
         } else if (qr != null) {
             codeValue = asString(qr.getOrDefault("qr_string", qr.get("value")));
-            kind = ReusableCodeResult.Kind.QR;
+            kind = "QRIS";
         }
 
-        OffsetDateTime expiresAt = parseIso((String) resp.get("expires_at"));
+        LocalDateTime expiresAt = toLocalUtc(asString(resp.get("expires_at")));
         if (expiresAt == null) {
-            // sometimes expires lives in channel_properties or not present for certain channels
+            @SuppressWarnings("unchecked")
             Map<String, Object> chProps = (Map<String, Object>) extra.get("channel_properties");
-            if (chProps != null) expiresAt = parseIso(asString(chProps.get("expires_at")));
+            if (chProps != null) {
+                expiresAt = toLocalUtc(asString(chProps.get("expires_at")));
+            }
         }
 
-        return new ReusableCodeResult(prId, referenceId, channel, kind, codeValue, expiresAt, resp);
+        return new ReusableCodeResult(prId, referenceId, channel, kind, codeValue, expiresAt, null);
     }
 
     private Map post(String uri, Map<String, Object> body) {
@@ -164,7 +187,7 @@ public class XenditClientService {
                 .body(body)
                 .retrieve()
                 .onStatus(HttpStatusCode::isError, (req, res) -> {
-                    throw new XenditClientException(res.getStatusCode().value(), res.getBody().toString());
+                    throw new ClientErrorException(res.getBody().toString());
                 })
                 .body(Map.class);
     }
@@ -181,8 +204,21 @@ public class XenditClientService {
                 }
             }
         }
-        return null;
+        return Collections.<String, Object>emptyMap();
     }
+
+    private LocalDateTime toLocalUtc(String iso) {
+        if (iso == null) return null;
+        try {
+            return java.time.OffsetDateTime.parse(iso)
+                    .toInstant()
+                    .atZone(java.time.ZoneOffset.UTC)
+                    .toLocalDateTime();
+        } catch (Exception e) {
+            try { return java.time.LocalDateTime.parse(iso); } catch (Exception ignore) { return null; }
+        }
+    }
+
 
     private String asString(Object o) { return (o == null) ? null : String.valueOf(o); }
 
@@ -191,16 +227,5 @@ public class XenditClientService {
         catch (Exception e) { return null; }
     }
 
-    /* ======== DTOs / Exception ======== */
 
-
-
-    public static class XenditClientException extends RuntimeException {
-        private final int status;
-        public XenditClientException(int status, String body) {
-            super("Xendit API error " + status + ": " + body);
-            this.status = status;
-        }
-        public int status() { return status; }
-    }
 }

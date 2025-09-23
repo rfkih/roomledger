@@ -11,7 +11,7 @@ public record BillingQuoteResponse(
         LocalDate endDate,
         BigDecimal monthlyPrice,
         int fullMonthsCount,
-        BigDecimal discountRate,         // e.g. 0.05 for 5%
+        BigDecimal discountRate,
         BigDecimal subtotalBeforeDiscount,
         BigDecimal discountAmount,
         BigDecimal totalAfterDiscount,

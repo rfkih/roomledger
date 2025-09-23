@@ -27,17 +27,16 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Payment extends Audit {
 
-    public enum Type { DEPOSIT, RENT }
+    public enum Type { DEPOSIT, RENT, FULL }
 
-    // expand to align with gateway events
     public enum Status {
         PENDING,                // created locally, before calling Xendit
-        WAITING_FOR_PAYMENT,    // created at Xendit, waiting customer action
+        WAITING_FOR_PAYMENT,    // created after (Inquiry) Payment Committed, waiting customer action to pay
         PAID,                   // paid (from webhook)
         FAILED,                 // failed (from webhook)
         EXPIRED,                // expired (from webhook)
-        CANCELLED,              // you cancelled
-        VERIFIED                // your own manual post-check (optional)
+        CANCELLED,              //  cancelled
+        VERIFIED                // verified
     }
 
     public enum GatewayFlow { PAY, REUSABLE_PAYMENT_CODE } // Xendit flow types

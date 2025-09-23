@@ -1,48 +1,37 @@
 package com.roomledger.app.model;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.vladmihalcea.hibernate.type.json.JsonType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.Type;
-import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(
-        name = "webhook_inbox",
-        uniqueConstraints = @UniqueConstraint(name = "uk_webhook_provider_event", columnNames = {"provider","event_id"})
-)
+@Table(name = "webhook_inbox",
+        uniqueConstraints = @UniqueConstraint(name = "uk_inbox_provider_event", columnNames = {"provider","event_id"}))
 @Getter @Setter
-@EntityListeners(AuditingEntityListener.class)
-public class WebhookInbox  extends Audit {
+public class WebhookInbox extends Audit {
 
     @Id @GeneratedValue
     private UUID id;
 
     @Column(nullable = false, length = 16)
-    private String provider; // "XENDIT"
+    private String provider;                  // "XENDIT"
 
     @Column(name = "event_id", nullable = false, length = 128)
-    private String eventId;
+    private String eventId;                   // stable id for de-dup
 
-    @Type(JsonType.class)
-    @Column(columnDefinition = "jsonb", nullable = false)
-    private JsonNode payload;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
+    private JsonNode payload;                 // <-- MUST NOT BE NULL
 
     @Column(nullable = false)
     private boolean processed = false;
 
-    @CreatedDate
-    @Column(name="received_at", updatable=false, nullable=false)
-    private LocalDateTime receivedAt;
-
-
+    @Column(name = "received_at", nullable = false)
+    private LocalDateTime receivedAt = LocalDateTime.now();
 }

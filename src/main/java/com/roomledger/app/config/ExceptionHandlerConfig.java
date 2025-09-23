@@ -2,6 +2,7 @@ package com.roomledger.app.config;
 
 
 import com.roomledger.app.dto.ResponseDto;
+import com.roomledger.app.exthandler.ClientErrorException;
 import com.roomledger.app.exthandler.InvalidAccountException;
 import com.roomledger.app.exthandler.InvalidInputException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -58,12 +60,30 @@ public class ExceptionHandlerConfig {
     }
 
 
+    /** Handles InvalidTransactionException and returns an error ResponseDto with HTTP 200 (OK).
+     * @param req request; @param e exception
+     * @return 200 OK with error body
+     */
+    @ExceptionHandler(value = {
+            ClientErrorException.class,
+    })
+    public ResponseEntity<ResponseDto> clientError(HttpServletRequest req, Exception e) {
+        ResponseDto errorResponse = ResponseDto.builder()
+                .responseCode(HttpStatus.INTERNAL_SERVER_ERROR.value()  + ResponseCode.INVALID_RESPONSE_CODE.getCode())
+                .responseDesc(ResponseCode.INVALID_RESPONSE_CODE.getDescription() + " - " + e.getMessage())
+                .build();
+        log.error("{} : {} - Invalid Transaction service for req - {}", e.getClass().getSimpleName(), e.getLocalizedMessage(), req.getRequestURL(), e);
+        return ResponseEntity.status(HttpStatus.OK).body(errorResponse);
+    }
+
     /** Handles InvalidInputException and returns an error ResponseDto with HTTP 200 (OK).
      * @param req request; @param e exception
      * @return 200 OK with error body
      */
     @ExceptionHandler(value = {
             InvalidInputException.class,
+            MethodArgumentNotValidException.class,
+            IllegalArgumentException.class
     })
     public ResponseEntity<ResponseDto> invalidInput(HttpServletRequest req, Exception e) {
         ResponseDto errorResponse = ResponseDto.builder()

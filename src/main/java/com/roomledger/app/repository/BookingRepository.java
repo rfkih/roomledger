@@ -7,25 +7,29 @@ import com.roomledger.app.model.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+
+@Repository
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
-    @Query("""
-    select count(b) > 0 from Booking b
-    where b.room.id = :roomId
+    @Query(value = """
+    select count(*) > 0 from bookings b
+    where b.room_id = :roomId
       and b.status <> :cancelled
-      and b.startDate <= :endDate
-      and (b.endDate is null or b.endDate >= :startDate)
-  """)
+      and b.start_date <= :endDate
+      and (b.end_date is null or b.end_date >= :startDate)
+  """, nativeQuery = true)
     boolean existsOverlap(
             @Param("roomId") UUID roomId,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate,
-            @Param("cancelled") Booking.Status cancelled
+            @Param("cancelled") String cancelled
     );
+
 
     @Query("""
   select b from Booking b

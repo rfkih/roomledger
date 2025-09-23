@@ -10,7 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -18,6 +18,12 @@ import java.util.UUID;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findFirstByBookingIdAndTypeOrderByIdAsc(UUID bookingId, Payment.Type type);
+
+    List<Payment> findByBookingIdAndTypeAndStatus(UUID bookingId, Payment.Type type, Payment.Status status);
+    List<Payment> findByBookingIdAndStatus(UUID bookingId,Payment.Status status );
+    Optional<Payment> findByPrId(String prId);
+    Optional<Payment> findByReferenceId(String referenceId);
+    List<Payment> findByBookingAndStatusAndChannelCode(Booking booking, Payment.Status status, String channelCode);
 
     @Query("""
       select p
@@ -28,7 +34,6 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
       """)
     Optional<Payment> findByIdWithBookingAndRoom(UUID id);
 
-    // check if next month is already paid/verified
     boolean existsByBookingIdAndTypeAndStatus(UUID bookingId, Payment.Type type, Payment.Status status);
 
     List<Payment> findByBookingIdAndTypeInAndStatusInOrderByPaidAtDesc(
