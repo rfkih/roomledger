@@ -3,6 +3,7 @@ package com.roomledger.app.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Payment;
 import com.roomledger.app.model.PaymentTransaction;
 import com.roomledger.app.model.WebhookInbox;
@@ -15,9 +16,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
+import java.math.RoundingMode;
 import java.time.*;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @Service
 @Slf4j
@@ -50,10 +54,10 @@ public class XenditService {
 
     /** Accept + persist inbox; then process idempotently. Always safe to call multiple times. */
     @Transactional
-    public ProcessResult accept(Map<String, Object> payload) {
+    public ProcessResult accept(Map<String, Object> payload) throws InvalidTransactionException {
         String provider = "XENDIT";
-        String eventId = extractEventId(payload);            // stable ID for inbox de-dup
-        if (eventId == null) eventId = extractProviderPaymentId(payload); // fallback
+        String eventId = extractEventId(payload);
+        if (eventId == null) eventId = extractProviderPaymentId(payload);
         if (eventId == null) eventId = String.valueOf(payload.hashCode());
 
         WebhookInbox box = new WebhookInbox();
@@ -75,60 +79,151 @@ public class XenditService {
     }
 
 
-    private UpsertOutcome upsertTransactionAndUpdatePayment(Map<String, Object> payload) {
-        String prId     = extractPaymentRequestId(payload);
-        String refId    = extractReferenceId(payload);
-        String payId    = extractProviderPaymentId(payload);
-        String channel  = extractString(payload, "data.channel_code");
-        String status   = extractStatus(payload);
-        Long   amount   = extractAmountMinor(payload);
-        String currency = extractString(payload, "data.currency");
+
+
+    @Transactional
+    protected UpsertOutcome upsertTransactionAndUpdatePayment(Map<String, Object> payload)
+            throws InvalidTransactionException {
+        final RoundingMode RULE = RoundingMode.HALF_UP;
+
+        String prId      = extractPaymentRequestId(payload);
+        String refId     = extractReferenceId(payload);            // booking_id (UUID string)
+        String payId     = extractProviderPaymentId(payload);      // must exist
+        String channel   = extractString(payload, "data.channel_code");
+        String status    = extractStatus(payload);
+        Long   paidMinor = extractAmountMinor(payload);            // integer rupiah from provider
+        String currency  = extractString(payload, "data.currency");
         LocalDateTime paidAt = extractPaidAt(payload);
 
-        PaymentTransaction trx = trxRepo.findByProviderPaymentId(payId).orElseGet(PaymentTransaction::new);
-        boolean isNew = trx.getId() == null;
-
-        if (isNew) {
-            trx.setProvider("XENDIT");
-            trx.setProviderPaymentId(payId != null ? payId : "unknown");
-            trx.setPaymentRequestId(prId);
-            trx.setReferenceId(refId);
-            trx.setChannelCode(channel);
+        if (payId == null || payId.isBlank()) {
+            throw new InvalidTransactionException("providerPaymentId (payId) is required but missing");
+        }
+        if (refId == null) {
+            throw new InvalidTransactionException("booking_id (refId) is required but missing");
         }
 
-        if (amount != null) trx.setAmount(amount);
-        if (currency != null) trx.setCurrency(currency);
-        if (status != null) trx.setStatus(status);
-        if (paidAt != null) trx.setPaidAt(paidAt);
-        trx.setPayload(payload != null ? payload : Map.of());
+        final UUID bookingId;
+        try {
+            bookingId = UUID.fromString(refId);
+        } catch (IllegalArgumentException e) {
+            throw new InvalidTransactionException("refId is not a valid booking UUID: " + refId);
+        }
 
-        Optional<Payment> maybe = Optional.empty();
-        if (prId != null) maybe = paymentRepo.findByPrId(prId);
-        if (maybe.isEmpty() && refId != null) maybe = paymentRepo.findByReferenceId(refId);
+        //Load all WAITING payments (DEPOSIT/RENT) for this booking
+        List<Payment> waiting = paymentRepo
+                .findByBookingIdAndStatus(bookingId, Payment.Status.WAITING_FOR_PAYMENT)
+                .stream()
+                .filter(p -> p.getType() == Payment.Type.DEPOSIT || p.getType() == Payment.Type.RENT)
+                .toList();
 
-        if (maybe.isPresent()) {
-            Payment p = maybe.get();
-            trx.setPayment(p);
-            log.info("Linked transaction {} to owner {}", trx.getId(), p.getOwner().getId());
-            trx.setOwner(p.getOwner());
-            trx.setBuilding(p.getBuilding());
+        if (waiting.isEmpty()) {
+            throw new InvalidTransactionException("No WAITING (DEPOSIT/RENT) payments for booking " + bookingId);
+        }
 
-            if ("SUCCEEDED".equalsIgnoreCase(status) || "PAID".equalsIgnoreCase(status)) {
-                p.setStatus(Payment.Status.PAID);
-                p.setPaidAt(paidAt != null ? paidAt : LocalDateTime.now(ZoneOffset.UTC));
-                if (payId != null) p.setProviderPaymentId(payId);
-                paymentRepo.save(p);
-            } else if ("EXPIRED".equalsIgnoreCase(status)) {
-                p.setStatus(Payment.Status.EXPIRED);
-                paymentRepo.save(p);
-            } else if ("FAILED".equalsIgnoreCase(status)) {
-                p.setStatus(Payment.Status.FAILED);
-                paymentRepo.save(p);
+        //Sum expected amount (normalize to integer rupiah once)
+        long expectedMinor = waiting.stream()
+                .map(Payment::getAmount)
+                .filter(Objects::nonNull)
+                .map(a -> a.setScale(0, RULE))
+                .mapToLong(BigDecimal::longValueExact)
+                .sum();
+
+        if (paidMinor == null) {
+            throw new InvalidTransactionException("Provider amount is missing");
+        }
+        if (paidMinor != expectedMinor) {
+            throw new InvalidTransactionException(
+                    "Total Amount is not equal to %d : %d (booking=%s)".formatted(paidMinor, expectedMinor, bookingId));
+        }
+
+        // For each Payment, find exactly one existing PaymentTransaction by payment_id
+        List<PaymentTransaction> txList = new ArrayList<>(waiting.size());
+        Map<UUID, Long> amountByPayment = new HashMap<>();
+        for (Payment p : waiting) {
+            List<PaymentTransaction> matches = trxRepo.findByPaymentId(p.getId()); // param type must be UUID
+            if (matches.isEmpty()) {
+                throw new InvalidTransactionException("Missing PaymentTransaction for payment " + p.getId());
+            }
+            if (matches.size() > 1) {
+                // If you prefer to pick the latest instead of throwing, sort by created_at and take last.
+                throw new InvalidTransactionException(
+                        "Multiple PaymentTransactions found for payment " + p.getId() + " (expected 1)");
+            }
+            txList.add(matches.getFirst());
+            // normalize each payment amount to integer rupiah
+            amountByPayment.put(p.getId(), p.getAmount().setScale(0, RULE).longValueExact());
+        }
+
+        // Update each transaction from its matching payment
+        for (Payment p : waiting) {
+            PaymentTransaction tx = txList.stream()
+                    .filter(t -> {
+                        // works whether you store relation or raw FK
+                        UUID pid = t.getPayment().getId();
+                        return p.getId().equals(pid);
+                    })
+                    .findFirst()
+                    .orElseThrow(() -> new InvalidTransactionException(
+                            "Internal error: matched PaymentTransaction not found for payment " + p.getId()));
+
+            if (channel  != null) tx.setChannelCode(channel);
+            if (currency != null) tx.setCurrency(currency);
+            if (status   != null) tx.setStatus(status);
+            if (paidAt   != null) tx.setPaidAt(paidAt);
+
+            tx.setAmount(amountByPayment.get(p.getId())); // set per-payment amount (not the total)
+            if (prId  != null && (tx.getPaymentRequestId() == null || tx.getPaymentRequestId().isBlank())) {
+                tx.setPaymentRequestId(prId);
+            }
+            if (tx.getReferenceId() == null || tx.getReferenceId().isBlank()) {
+                tx.setReferenceId(refId); // booking_id for traceability
+            }
+            // if providerPaymentId is blank, fill it; else keep (idempotent updates)
+            if (tx.getProviderPaymentId() == null || tx.getProviderPaymentId().isBlank()) {
+                tx.setProviderPaymentId(payId);
+            }
+            // Ensure owner/building come from Payments table
+            tx.setOwner(p.getOwner());
+            if (p.getBuilding() != null) {
+                tx.setBuilding(p.getBuilding());
+            }
+            tx.setPayload(payload != null ? payload : Map.of());
+
+            if (tx.getOwner() == null) {
+                throw new InvalidTransactionException(
+                        "Refusing to save PaymentTransaction without owner (payment=" + p.getId() + ", booking=" + bookingId + ")");
             }
         }
-        trxRepo.save(trx);
-        return new UpsertOutcome(isNew ? "inserted" : "updated");
+
+        // Save all transactions in one go
+        trxRepo.saveAll(txList);
+
+        // Reflect provider status into ALL matched payments
+        if (status != null) {
+            switch (status.toUpperCase(Locale.ROOT)) {
+                case "SUCCEEDED", "PAID" -> {
+                    LocalDateTime effectivePaidAt = (paidAt != null ? paidAt : LocalDateTime.now(ZoneOffset.UTC));
+                    for (Payment p : waiting) {
+                        p.setStatus(Payment.Status.PAID);
+                        p.setPaidAt(effectivePaidAt);
+                    }
+                    paymentRepo.saveAll(waiting);
+                }
+                case "EXPIRED" -> {
+                    waiting.forEach(p -> p.setStatus(Payment.Status.EXPIRED));
+                    paymentRepo.saveAll(waiting);
+                }
+                case "FAILED" -> {
+                    waiting.forEach(p -> p.setStatus(Payment.Status.FAILED));
+                    paymentRepo.saveAll(waiting);
+                }
+                default -> { /* ignore interim statuses */ }
+            }
+        }
+
+        return new UpsertOutcome("updated");
     }
+
 
     /* ===== helpers ===== */
 
@@ -140,7 +235,7 @@ public class XenditService {
     }
 
     private String extractProviderPaymentId(Map<String, Object> payload) {
-        String v = extractString(payload, "data.id");
+        String v = extractString(payload, "data.business_id");
         if (v != null) return v;
         return extractString(payload, "id");
     }
@@ -165,7 +260,7 @@ public class XenditService {
 
     private Long extractAmountMinor(Map<String, Object> payload) {
         // amounts might be number/int/long in JSON
-        Object o = extractObject(payload, "data.amount");
+        Object o = extractObject(payload, "data.request_amount");
         if (o instanceof Number n) return n.longValue();
         return null;
     }

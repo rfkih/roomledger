@@ -107,8 +107,8 @@ public class BookingController {
                                       @RequestParam(required = false) String reference) {
         var p = payments.findById(paymentId).orElseThrow();
         p.setStatus(Payment.Status.PAID);
-        p.setMethod(method);
-        p.setReference(reference);
+//        p.setMethod(method);
+//        p.setReference(reference);
         p.setPaidAt(LocalDateTime.now());
         return ResponseUtil.setResponse(
                 HttpStatus.OK.value(),
