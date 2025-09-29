@@ -158,7 +158,6 @@ public class XenditService {
         for (Payment p : waiting) {
             PaymentTransaction tx = txList.stream()
                     .filter(t -> {
-                        // works whether you store relation or raw FK
                         UUID pid = t.getPayment().getId();
                         return p.getId().equals(pid);
                     })

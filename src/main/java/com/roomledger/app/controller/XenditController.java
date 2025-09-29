@@ -47,19 +47,6 @@ public class XenditController {
 
     /* ---------------- One-off payments (PAY) ---------------- */
 
-//    @PostMapping("/pay/va")
-//    public ResponseEntity<Map<String,Object>> createPayVa(
-//            @Valid @RequestBody CreatePayVaRequest req
-//    ) {
-//        Map<String,Object> resp = xenditClientService.createPayVa(
-//                req.bookingRef(),
-//                req.amount(),
-//                req.channelCode(),
-//                req.displayName(),
-//                req.expectedAmount()   // nullable; set to enforce closed amount if supported
-//        );
-//        return ResponseEntity.ok(resp);
-//    }
 
     @PostMapping("/pay/qris")
     public ResponseEntity<Map<String,Object>> createPayQris(

@@ -1,11 +1,10 @@
 package com.roomledger.app.logging;
 
 
-import com.roomledger.app.config.RuntimeHintsConfig;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.ImportRuntimeHints;
+
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -16,7 +15,6 @@ import java.lang.reflect.Type;
 
 @RestControllerAdvice
 @Configuration
-@ImportRuntimeHints(value = {RuntimeHintsConfig.class})
 public class CustomRequestBodyAdviceAdapter extends RequestBodyAdviceAdapter {
     private final LoggingService loggingService;
 

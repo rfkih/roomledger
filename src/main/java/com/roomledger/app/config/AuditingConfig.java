@@ -17,9 +17,9 @@ public class AuditingConfig {
         return () -> {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth == null || !auth.isAuthenticated() || auth instanceof AnonymousAuthenticationToken) {
-                return Optional.of("system"); // webhook/scheduler/etc.
+                return Optional.of("system");
             }
-            return Optional.ofNullable(auth.getName()); // or cast to get userId
+            return Optional.ofNullable(auth.getName()); // auth.getName() will cast to get userId
         };
     }
 }

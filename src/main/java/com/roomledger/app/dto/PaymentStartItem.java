@@ -14,7 +14,7 @@ import java.util.UUID;
 public class PaymentStartItem {
     private UUID paymentId;
     private String type;           // RENT / DEPOSIT
-    private long amount;           // if you store BigDecimal, adapt type or convert
+    private long amount;
     private String channelCode;    // e.g., BNI, BCA, QRIS
     private String vaNumber;       // null for QRIS
     private String qrisQrString;   // null for VA
