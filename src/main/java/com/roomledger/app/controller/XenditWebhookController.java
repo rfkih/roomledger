@@ -1,5 +1,6 @@
 package com.roomledger.app.controller;
 
+import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.service.XenditService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,7 +19,7 @@ public class XenditWebhookController {
 
     @PostMapping
     public ResponseEntity<?> handle(@RequestHeader(value = "x-callback-token", required = false) String token,
-                                    @RequestBody Map<String, Object> payload) {
+                                    @RequestBody Map<String, Object> payload) throws InvalidTransactionException {
         xenditService.verifyTokenOrThrow(token);
         XenditService.ProcessResult r = xenditService.accept(payload);
         return ResponseEntity.ok(Map.of("status", "ok", "info", r.message()));

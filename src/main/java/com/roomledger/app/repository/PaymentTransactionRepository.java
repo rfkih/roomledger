@@ -4,13 +4,25 @@ import com.roomledger.app.model.PaymentTransaction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+
+@Repository
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, UUID> {
     Optional<PaymentTransaction> findByProviderPaymentId(String providerPaymentId);
+
+    @Query(value = """
+      SELECT pt.*
+      FROM roomledger.payment_transactions pt
+      WHERE pt.payment_id = :paymentId
+      ORDER BY pt.created_at DESC
+      """,
+            nativeQuery = true)
+    List<PaymentTransaction> findByPaymentId(@Param("paymentId") UUID paymentId);
 
     @Query(value = """
       SELECT pt.*

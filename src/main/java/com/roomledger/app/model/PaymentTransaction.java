@@ -14,7 +14,7 @@ import java.util.UUID;
 @Entity
 @Table(
         name = "payment_transactions",
-        uniqueConstraints = @UniqueConstraint(name = "uk_ptrx_provider_payment_id", columnNames = "provider_payment_id"),
+//        uniqueConstraints = @UniqueConstraint(name = "uk_ptrx_provider_payment_id", columnNames = "provider_payment_id"),
         indexes = {
                 @Index(name = "ix_ptrx_payment", columnList = "payment_id"),
                 @Index(name = "ix_ptrx_code", columnList = "customer_payment_code_id"),

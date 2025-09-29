@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -32,6 +34,7 @@ public class PaymentService {
 
     private final ClockService clock;
     private final PaymentAttemptRepository paymentAttemptRepository;
+    static final RoundingMode RULE = RoundingMode.HALF_UP;
 
     public PaymentService(BookingRepository bookings,
                           PaymentRepository payments, XenditClientService xendit, PaymentAttemptRepository attemptRepo, CustomerPaymentCodeRepository codeRepo, ObjectMapper m, PaymentTransactionRepository paymentTransactionRepo,
@@ -172,7 +175,6 @@ public class PaymentService {
                                            long amount,
                                            String bankChannelCode,
                                            String displayName,
-                                           String referenceId,
                                            Long expectedAmountNullable
     ) throws InvalidTransactionException {
         Booking booking = bookingRepo.findById(bookingId)
@@ -195,6 +197,20 @@ public class PaymentService {
         if (payments.isEmpty()) {
             throw new InvalidTransactionException("Payment not found for booking: " + bookingId);
         }
+
+
+
+        long totalAmount = payments.stream()
+                .map(Payment::getAmount)                     // BigDecimal
+                .map(a -> a.setScale(0, RULE))               // normalize each line OR normalize at the end (pick one policy!)
+                .mapToLong(BigDecimal::longValueExact)
+                .sum();
+
+        if (amount != totalAmount) {
+            throw new InvalidTransactionException(
+                    "Total Amount is not equal to %d : %d".formatted(amount, totalAmount));
+        }
+
 
         XenditPaymentRequestDTO xenditPaymentRequest = new XenditPaymentRequestDTO();
         ChannelProperties channelProperties = new ChannelProperties();
@@ -247,7 +263,6 @@ public class PaymentService {
         at.setIdemKey(UUID.randomUUID());
         paymentAttemptRepository.save(at);
 
-        // Build array items for the response
         List<PaymentStartItem> items = payments.stream()
                 .map(p -> new PaymentStartItem(
                         p.getId(),
@@ -421,22 +436,6 @@ public class PaymentService {
 
 
     /* ======================== helpers ======================== */
-
-    private String extractVaNumber(Map<String,Object> resp) {
-        Object actionsObj = resp.get("actions");
-        if (actionsObj instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Map<?,?> m) {
-                    if ("VIRTUAL_ACCOUNT_NUMBER".equals(String.valueOf(m.get("descriptor")))) {
-                        Object v = m.get("value");
-                        if (v == null) v = m.get("account_number");
-                        return v == null ? null : String.valueOf(v);
-                    }
-                }
-            }
-        }
-        return null;
-    }
 
     private String extractQrString(Map<String,Object> resp) {
         Object actionsObj = resp.get("actions");
