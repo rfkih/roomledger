@@ -56,13 +56,13 @@ public class XenditService {
     @Transactional
     public ProcessResult accept(Map<String, Object> payload) throws InvalidTransactionException {
         String provider = "XENDIT";
-        String eventId = extractEventId(payload);
-        if (eventId == null) eventId = extractProviderPaymentId(payload);
-        if (eventId == null) eventId = String.valueOf(payload.hashCode());
+        String paymentId = extractPaymentId(payload);
+        if (paymentId == null) paymentId = extractProviderPaymentId(payload);
+        if (paymentId == null) paymentId = String.valueOf(payload.hashCode());
 
         WebhookInbox box = new WebhookInbox();
         box.setProvider(provider);
-        box.setEventId(eventId);
+        box.setPaymentId(paymentId);
         box.setPayload(toJson(payload));
         try {
             box = inboxRepo.save(box);
@@ -226,15 +226,12 @@ public class XenditService {
 
     /* ===== helpers ===== */
 
-    private String extractEventId(Map<String, Object> payload) {
-
-        String v = extractString(payload, "id");
-        if (v != null) return v;
-        return extractString(payload, "event_id");
+    private String extractPaymentId(Map<String, Object> payload) {
+        return extractString(payload, "payment_id");
     }
 
     private String extractProviderPaymentId(Map<String, Object> payload) {
-        String v = extractString(payload, "data.business_id");
+        String v = extractString(payload, "data.payment_id");
         if (v != null) return v;
         return extractString(payload, "id");
     }

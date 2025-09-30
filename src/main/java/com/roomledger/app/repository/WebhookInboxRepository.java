@@ -15,21 +15,21 @@ public interface WebhookInboxRepository extends JpaRepository<WebhookInbox, UUID
     @Modifying
     @Query(value = """
       INSERT INTO roomledger.webhook_inbox
-        (id, provider, event_id, payload, processed, received_at,
+        (id, provider, payment_id, payload, processed, received_at,
          created_at, created_by, updated_at, updated_by)
       VALUES
-        (:id, :provider, :eventId, CAST(:payloadJson AS jsonb), false, :receivedAt,
+        (:id, :provider, :paymentId, CAST(:payloadJson AS jsonb), false, :receivedAt,
          now(), :by, now(), :by)
       ON CONFLICT (provider, event_id) DO NOTHING
       """, nativeQuery = true)
     int insertIgnore(@Param("id") UUID id,
                      @Param("provider") String provider,
-                     @Param("eventId") String eventId,
+                     @Param("paymentId") String paymentId,
                      @Param("payloadJson") String payloadJson,
                      @Param("receivedAt") OffsetDateTime receivedAt,
                      @Param("by") String by);
 
-    Optional<WebhookInbox> findByProviderAndEventId(String provider, String eventId);
+    Optional<WebhookInbox> findByProviderAndPaymentId(String provider, String paymentId);
 
     // Mark processed atomically; returns 1 iff it flipped from false→true
     @Modifying
@@ -39,6 +39,6 @@ public interface WebhookInboxRepository extends JpaRepository<WebhookInbox, UUID
       WHERE provider = :provider AND event_id = :eventId AND processed = false
       """, nativeQuery = true)
     int markProcessed(@Param("provider") String provider,
-                      @Param("eventId") String eventId,
+                      @Param("paymentId") String paymentId,
                       @Param("by") String by);
 }

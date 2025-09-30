@@ -22,8 +22,8 @@ public class WebhookInbox extends Audit {
     @Column(nullable = false, length = 16)
     private String provider;                  // "XENDIT"
 
-    @Column(name = "event_id", nullable = false, length = 128)
-    private String eventId;                   // stable id for de-dup
+    @Column(name = "payment_id", nullable = false, length = 128)
+    private String paymentId;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
