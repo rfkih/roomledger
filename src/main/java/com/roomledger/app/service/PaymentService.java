@@ -27,8 +27,8 @@ public class PaymentService {
     private final BookingRepository bookingRepo;
     private final PaymentRepository paymentRepo;
     private final XenditClientService xendit;
-    private final PaymentAttemptRepository attemptRepo;              // if you keep attempts
-    private final CustomerPaymentCodeRepository codeRepo;            // reusable VA/QR
+    private final PaymentAttemptRepository attemptRepo;
+    private final CustomerPaymentCodeRepository codeRepo;
     private final ObjectMapper M;
     private final PaymentTransactionRepository paymentTransactionRepo;
 
@@ -100,8 +100,11 @@ public class PaymentService {
             throw new InvalidTransactionException("No Pending Payment / Booking Expired for " + bookingId);
         }
 
+
         long totalAmount = payments.stream()
-                .mapToLong(p -> p.getAmount().longValue())
+                .map(Payment::getAmount)
+                .map(a -> a.setScale(0, RULE))               // normalize each line OR normalize at the end (pick one policy!)
+                .mapToLong(BigDecimal::longValueExact)
                 .sum();
 
         String referenceId = null;
@@ -284,77 +287,6 @@ public class PaymentService {
                 resp.getChannelProperties().getExpiresAt(),
                 items
         );
-    }
-
-
-     /* =========================================================
-     3) REUSABLE codes (VA / static QR) — upsert per customer
-     ========================================================= */
-
-    @Transactional
-    public ReusableCodeResult provisionReusableVa(UUID ownerId,
-                                                        UUID buildingIdOrNull,  // null = shared across owner
-                                                        UUID customerId,
-                                                        String displayName,
-                                                        String bankChannelCode) {
-        // Try existing
-        Optional<CustomerPaymentCode> existing =
-                codeRepo.findActiveByOwnerAndBuildingAndCustomerAndChannel(ownerId, buildingIdOrNull, String.valueOf(customerId), bankChannelCode);
-        if (existing.isPresent()) {
-            CustomerPaymentCode c = existing.get();
-            return new ReusableCodeResult(c.getPaymentRequestId(), null,bankChannelCode ,
-                    c.getKind().name() , c.getCodeValue() , c.getExpiresAt(), null);
-        }
-
-        // Create at Xendit
-        ReusableCodeResult x = xendit.createReusableVa(customerId, displayName, bankChannelCode);
-
-        // Upsert local
-        CustomerPaymentCode c = new CustomerPaymentCode();
-        c.setOwner(new Owner() {{ setId(ownerId); }});         // minimal reference; or fetch Owner
-        if (buildingIdOrNull != null) c.setBuilding(new Building() {{ setId(buildingIdOrNull); }});
-        c.setCustomerId(String.valueOf(customerId));
-        c.setChannelCode(bankChannelCode);
-        c.setKind(CustomerPaymentCode.Kind.VIRTUAL_ACCOUNT);
-        c.setCodeValue(x.codeValue());
-        c.setPaymentRequestId(x.paymentRequestId());
-        c.setStatus(CustomerPaymentCode.Status.ACTIVE);
-        c.setExpiresAt(toLocalUtc(x.expiresAt() != null ? x.expiresAt().toString() : null));
-        c.setActions(safeJsonMap(x.raw()));                    // if your entity uses JSONB(Map); else set text
-        codeRepo.save(c);
-
-        return new ReusableCodeResult(c.getPaymentRequestId(), null,bankChannelCode ,
-                c.getKind().name() , c.getCodeValue() , c.getExpiresAt(), null);
-    }
-
-    @Transactional
-    public ReusableCodeResult provisionReusableQris(UUID ownerId,
-                                                          UUID buildingIdOrNull,
-                                                          UUID customerId) {
-        Optional<CustomerPaymentCode> existing =
-                codeRepo.findActiveByOwnerAndBuildingAndCustomerAndChannel(ownerId, buildingIdOrNull, String.valueOf(customerId), "QRIS");
-        if (existing.isPresent()) {
-            var c = existing.get();
-            return new ReusableCodeResult(c.getPaymentRequestId(), null, c.getChannelCode(),
-                    c.getKind().toString(), c.getCodeValue(), c.getExpiresAt(), null);
-        }
-
-        ReusableCodeResult x = xendit.createReusableQris(String.valueOf(customerId));
-
-        CustomerPaymentCode c = new CustomerPaymentCode();
-        c.setOwner(new Owner() {{ setId(ownerId); }});
-        if (buildingIdOrNull != null) c.setBuilding(new Building() {{ setId(buildingIdOrNull); }});
-        c.setCustomerId(String.valueOf(customerId));
-        c.setChannelCode("QRIS");
-        c.setKind(CustomerPaymentCode.Kind.QR);
-        c.setCodeValue(x.codeValue());
-        c.setPaymentRequestId(x.paymentRequestId());
-        c.setStatus(CustomerPaymentCode.Status.ACTIVE);
-        c.setExpiresAt(toLocalUtc(x.expiresAt() != null ? x.expiresAt().toString() : null));
-        c.setActions(safeJsonMap(x.raw()));
-        codeRepo.save(c);
-
-        return new ReusableCodeResult(c.getPaymentRequestId(), x.referenceId(), c.getChannelCode(), c.getKind().name().toString(),c.getCodeValue(),c.getExpiresAt(), null);
     }
 
     @Transactional

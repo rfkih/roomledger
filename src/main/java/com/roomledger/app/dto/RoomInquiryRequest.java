@@ -10,7 +10,8 @@ import java.util.UUID;
 public record RoomInquiryRequest(
         @NotNull
         UUID buildingId,
-        String status,             // optional: AVAILABLE|OCCUPIED|MAINTENANCE (keep for filters like MAINTENANCE)
+        @NotNull
+        String status,
         BigDecimal minPrice,
         BigDecimal maxPrice,
         @NotNull

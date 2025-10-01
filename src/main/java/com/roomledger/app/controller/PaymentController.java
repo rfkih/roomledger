@@ -32,7 +32,7 @@ public class PaymentController {
     /* =========================
      One-off (type = PAY)
      ========================= */
-    @PostMapping("/{bookingId}/va")
+    @PostMapping("/{bookingId}")
     public ResponseEntity<PaymentStartResult> startOneOffVa(
             @PathVariable UUID bookingId,
             @RequestBody @Valid CreateVaPaymentRequest req

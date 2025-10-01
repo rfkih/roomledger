@@ -31,8 +31,6 @@ public class XenditClientService {
     public ReusableCodeResult createReusableVa(UUID customerId, String displayName, String bankChannelCode) {
 
 
-
-
         ReusableCodeResult r = createReusableCode(customerId.toString(), Map.of(
                 "channel_code", bankChannelCode,                                // e.g. "BNI_VIRTUAL_ACCOUNT"
                 "channel_properties", Map.of(

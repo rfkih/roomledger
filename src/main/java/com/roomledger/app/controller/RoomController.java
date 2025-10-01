@@ -9,6 +9,7 @@ import com.roomledger.app.repository.RoomRepository;
 import com.roomledger.app.util.ResponseCode;
 import com.roomledger.app.util.ResponseService;
 import com.roomledger.app.util.ResponseUtil;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +32,7 @@ public class RoomController {
     }
 
     @PostMapping("/inquiry")
-    public ResponseService inquiry(@RequestBody RoomInquiryRequest req) throws InvalidTransactionException {
+    public ResponseService inquiry(@Valid  @RequestBody RoomInquiryRequest req) throws InvalidTransactionException {
 
         Room.Status st = null;
         if (req.status() != null && !req.status().isBlank()) {

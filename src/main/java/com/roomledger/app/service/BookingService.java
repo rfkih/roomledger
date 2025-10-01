@@ -98,7 +98,7 @@ public class BookingService {
         rent.setCurrency("IDR");
         payments.save(rent);
 
-        return new DraftBookingResult(b.getId(), dep.getId());
+        return new DraftBookingResult(b.getId(), dep.getId(), rent.getId(), dep.getAmount(), rent.getAmount(), b.getRoom().getId(), b.getRoom().getBuilding().getId());
     }
 
 
