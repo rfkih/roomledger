@@ -1,6 +1,7 @@
 package com.roomledger.app.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -14,7 +15,7 @@ import java.util.UUID;
 @Table(name = "rooms")
 public class Room extends Audit {
 
-    public enum Status { AVAILABLE, OCCUPIED, MAINTENANCE }
+//    public enum Status { AVAILABLE, OCCUPIED, MAINTENANCE }
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -33,6 +34,6 @@ public class Room extends Audit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Status status = Status.AVAILABLE;
+    private RoomStatus status = RoomStatus.AVAILABLE;
 }
 

@@ -1,5 +1,6 @@
 package com.roomledger.app.model;
 
+import com.roomledger.app.model.Commons.Enum.BuildingStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,8 +22,6 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Building extends Audit {
 
-    public enum Status { ACTIVE, INACTIVE }
-
     @Id @GeneratedValue
     private UUID id;
 
@@ -40,5 +39,5 @@ public class Building extends Audit {
     private String address;
 
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16)
-    private Status status = Status.ACTIVE;
+    private BuildingStatus status = BuildingStatus.ACTIVE;
 }

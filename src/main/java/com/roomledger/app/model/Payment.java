@@ -1,17 +1,16 @@
 package com.roomledger.app.model;
 
 
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
@@ -27,17 +26,8 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Payment extends Audit {
 
-    public enum Type { DEPOSIT, RENT, FULL }
+//    public enum Type { DEPOSIT, RENT, FULL }
 
-    public enum Status {
-        PENDING,                // created locally, before calling Xendit
-        WAITING_FOR_PAYMENT,    // created after (Inquiry) Payment Committed, waiting customer action to pay
-        PAID,                   // paid (from webhook)
-        FAILED,                 // failed (from webhook)
-        EXPIRED,                // expired (from webhook)
-        CANCELLED,              //  cancelled
-        VERIFIED                // verified
-    }
 
     public enum GatewayFlow { PAY, REUSABLE_PAYMENT_CODE } // Xendit flow types
 
@@ -58,11 +48,11 @@ public class Payment extends Audit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Type type;
+    private PaymentType type;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Status status = Status.PENDING;
+    private PaymentStatus status;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;

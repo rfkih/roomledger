@@ -4,7 +4,10 @@ package com.roomledger.app.controller;
 import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
 import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import com.roomledger.app.model.Room;
 import com.roomledger.app.repository.BookingRepository;
 import com.roomledger.app.repository.PaymentRepository;
@@ -58,9 +61,9 @@ public class BookingController {
 
         Payment p = payments.findByIdWithBookingAndRoom(paymentId).orElseThrow();
 
-        if (p.getType() == Payment.Type.DEPOSIT) {
+        if (p.getType() == PaymentType.DEPOSIT) {
             bookingService.activateOnDepositVerified(paymentId);
-        } else if (p.getType() == Payment.Type.RENT) {
+        } else if (p.getType() == PaymentType.RENT) {
             bookingService.activateOnRentVerified(paymentId);
         }
 
@@ -106,7 +109,7 @@ public class BookingController {
                                       @RequestParam(required = false) String method,
                                       @RequestParam(required = false) String reference) {
         var p = payments.findById(paymentId).orElseThrow();
-        p.setStatus(Payment.Status.PAID);
+        p.setStatus(PaymentStatus.PAID);
 //        p.setMethod(method);
 //        p.setReference(reference);
         p.setPaidAt(LocalDateTime.now());
@@ -124,7 +127,7 @@ public class BookingController {
     @Transactional
     public ResponseService verify(@PathVariable UUID paymentId) {
         var p = payments.findById(paymentId).orElseThrow();
-        p.setStatus(Payment.Status.VERIFIED);
+        p.setStatus(PaymentStatus.VERIFIED);
         payments.save(p);
         return ResponseUtil.setResponse(
                 HttpStatus.OK.value(),
@@ -166,14 +169,14 @@ public class BookingController {
         var day1 = ym.atDay(1);
 
         var maybeRent = payments.findByBookingIdAndTypeAndPeriodMonth(
-                b.getId(), Payment.Type.RENT, day1
+                b.getId(), PaymentType.RENT, day1
         );
 
         if (!willContinue) {
             // If already paid/verified for that month, don’t allow decline
             if (maybeRent.isPresent() &&
-                    (maybeRent.get().getStatus() == Payment.Status.PAID ||
-                            maybeRent.get().getStatus() == Payment.Status.VERIFIED)) {
+                    (maybeRent.get().getStatus() == PaymentStatus.PAID ||
+                            maybeRent.get().getStatus() == PaymentStatus.VERIFIED)) {
                 return ResponseUtil.setResponse(
                         HttpStatus.OK.value(),
                         applicationCode,
@@ -193,7 +196,7 @@ public class BookingController {
             // End booking at end of previous month and stop auto-renew
             var endOfPrev = ym.minusMonths(1).atEndOfMonth();
             b.setEndDate(endOfPrev);
-            b.setStatus(Booking.Status.ENDED);
+            b.setStatus(BookingStatus.ENDED);
             b.setAutoRenew(false);
             bookings.save(b);
 
@@ -212,10 +215,7 @@ public class BookingController {
                     ).getBody();
         }
 
-        // willContinue == true
         if (maybeRent.isEmpty()) {
-            // Create bill now if missing
-
             BigDecimal amount = billingService.quoteSingleMonth(
                     b.getMonthlyPrice(), b.getStartDate(), b.getEndDate(), ym
             );
@@ -225,8 +225,8 @@ public class BookingController {
 
             var rent = new Payment();
             rent.setBooking(b);
-            rent.setType(Payment.Type.RENT);
-            rent.setStatus(Payment.Status.PENDING);
+            rent.setType(PaymentType.RENT);
+            rent.setStatus(PaymentStatus.PENDING);
             rent.setAmount(amount);
             rent.setPeriodMonth(day1);
             payments.save(rent);

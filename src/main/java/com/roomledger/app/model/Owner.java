@@ -1,5 +1,7 @@
 package com.roomledger.app.model;
 
+import com.roomledger.app.model.Commons.Enum.OwnerStatus;
+import com.roomledger.app.model.Commons.Enum.OwnerType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,9 +21,6 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Owner extends Audit {
 
-    public enum Type { COMPANY, PERSON }
-    public enum Status { ACTIVE, INACTIVE }
-
     @Id
     @GeneratedValue
     private UUID id;
@@ -33,10 +32,10 @@ public class Owner extends Audit {
     private String displayName;
 
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16)
-    private Type type = Type.COMPANY;
+    private OwnerType type = OwnerType.PERSON;
 
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16)
-    private Status status = Status.ACTIVE;
+    private OwnerStatus status = OwnerStatus.ACTIVE;
 
     @Column(nullable = false, length = 64)
     private String timezone = "Asia/Jakarta";

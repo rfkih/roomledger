@@ -2,7 +2,10 @@ package com.roomledger.app.repository;
 
 
 import com.roomledger.app.model.Booking;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
 import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,13 +20,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
-    Optional<Payment> findFirstByBookingIdAndTypeOrderByIdAsc(UUID bookingId, Payment.Type type);
+    Optional<Payment> findFirstByBookingIdAndTypeOrderByIdAsc(UUID bookingId, PaymentType type);
 
-    List<Payment> findByBookingIdAndTypeAndStatus(UUID bookingId, Payment.Type type, Payment.Status status);
-    List<Payment> findByBookingIdAndStatus(UUID bookingId,Payment.Status status );
+    List<Payment> findByBookingIdAndTypeAndStatus(UUID bookingId, PaymentType type, PaymentStatus status);
+    List<Payment> findByBookingIdAndStatus(UUID bookingId,PaymentStatus status );
     Optional<Payment> findByPrId(String prId);
     Optional<Payment> findByReferenceId(String referenceId);
-    List<Payment> findByBookingAndStatusAndChannelCode(Booking booking, Payment.Status status, String channelCode);
+    List<Payment> findByBookingAndStatusAndChannelCode(Booking booking, PaymentStatus status, String channelCode);
 
     @Query("""
       select p
@@ -34,12 +37,12 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
       """)
     Optional<Payment> findByIdWithBookingAndRoom(UUID id);
 
-    boolean existsByBookingIdAndTypeAndStatus(UUID bookingId, Payment.Type type, Payment.Status status);
+    boolean existsByBookingIdAndTypeAndStatus(UUID bookingId, PaymentType type, PaymentStatus status);
 
     List<Payment> findByBookingIdAndTypeInAndStatusInOrderByPaidAtDesc(
             UUID bookingId,
-            Collection<Payment.Type> types,
-            Collection<Payment.Status> statuses
+            Collection<PaymentType> types,
+            Collection<PaymentStatus> statuses
     );
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
@@ -78,25 +81,36 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
                                         @Param("paidAt") LocalDateTime paidAt,
                                         @Param("now") LocalDateTime now);
 
-    @Query("""
-     select p from Payment p
-       join fetch p.booking b
-       join fetch b.tenant t
-       left join fetch b.room r
-     where t.phone = :phone
-       and p.status = "PENDING"
-       and b.status <> :bookingCancelled
-     order by coalesce(p.periodMonth, b.startDate), p.createdAt
-  """)
+    @Query(value = """
+  select p.*
+  from payments p
+  join bookings b on b.id = p.booking_id
+  join tenants  t on t.id = b.tenant_id
+  left join rooms r on r.id = b.room_id
+  where t.phone = :phone
+    and p.status in ('WAITING_FOR_PAYMENT', 'PENDING')
+    and b.status <> :bookingCancelled
+  order by coalesce(p.period_month, b.start_date), p.created_at
+""", nativeQuery = true)
     List<Payment> findActiveBillingByPhoneFetch(
             @Param("phone") String phone,
-            @Param("bookingCancelled") Booking.Status bookingCancelled
+            @Param("bookingCancelled") String bookingCancelled
     );
 
+    @Query(value = """
+  select p.*
+  from payments p
+  where p.type = :type
+    and p.status = :status
+    and p.created_at < :before
+""", nativeQuery = true)
     List<Payment> findByTypeAndStatusAndCreatedAtBefore(
-            Payment.Type type,
-            Payment.Status status,
-            LocalDateTime before);
+            @Param("type") String type,
+            @Param("status") String status,
+            @Param("before") LocalDateTime before
+    );
+
+
 
     @Modifying
     @Query(value = """
@@ -108,7 +122,7 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     """, nativeQuery = true)
     int cancelPendingByBooking(@Param("bookingId") UUID bookingId);
 
-    Optional<Payment> findByBookingIdAndTypeAndPeriodMonth(UUID bookingId, Payment.Type type, LocalDate periodMonth);
+    Optional<Payment> findByBookingIdAndTypeAndPeriodMonth(UUID bookingId, PaymentType type, LocalDate periodMonth);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -120,9 +134,9 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
            and p.status     = :pendingStatus
         """)
     int cancelPendingRentByBooking(UUID bookingId,
-                                   Payment.Type rentType,
-                                   Payment.Status pendingStatus,
-                                   Payment.Status cancelledStatus,
+                                   PaymentType rentType,
+                                   PaymentStatus pendingStatus,
+                                   PaymentStatus cancelledStatus,
                                    LocalDateTime updatedAt);
 
     @Query("""

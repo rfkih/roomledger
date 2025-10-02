@@ -4,6 +4,8 @@ import com.roomledger.app.dto.RoomInquiryRequest;
 import com.roomledger.app.exthandler.InvalidInputException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
+import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import com.roomledger.app.model.Room;
 import com.roomledger.app.repository.RoomRepository;
 import com.roomledger.app.util.ResponseCode;
@@ -34,10 +36,10 @@ public class RoomController {
     @PostMapping("/inquiry")
     public ResponseService inquiry(@Valid  @RequestBody RoomInquiryRequest req) throws InvalidTransactionException {
 
-        Room.Status st = null;
+        RoomStatus st = null;
         if (req.status() != null && !req.status().isBlank()) {
             try {
-                st = Room.Status.valueOf(req.status().trim().toUpperCase(Locale.ROOT));
+                st = RoomStatus.valueOf(req.status().trim().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
                 throw new InvalidInputException("Invalid status. Use AVAILABLE|OCCUPIED|MAINTENANCE");
             }
@@ -52,7 +54,7 @@ public class RoomController {
         List<Room> result = (start != null && end != null)
                 ? roomRepository.inquiryWithDates(
                 req.buildingId(), st, req.minPrice(), req.maxPrice(),
-                start, end, Booking.Status.CANCELLED)
+                start, end, BookingStatus.CANCELLED)
                 : roomRepository.inquiryNoDates(
                 req.buildingId(), st, req.minPrice(), req.maxPrice());
 

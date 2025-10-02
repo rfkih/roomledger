@@ -3,6 +3,10 @@ package com.roomledger.app.service;
 import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.*;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
+import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import com.roomledger.app.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -70,7 +73,7 @@ public class BookingService {
         b.setStartDate(start);
         b.setEndDate(end);
         b.setMonthlyPrice(room.getMonthlyPrice());
-        b.setStatus(Booking.Status.DRAFT);
+        b.setStatus(BookingStatus.DRAFT);
         b.setAutoRenew(true);
         b = bookings.save(b);
 
@@ -80,8 +83,8 @@ public class BookingService {
         dep.setBooking(b);
         dep.setOwner(owner);
         dep.setBuilding(bldg);
-        dep.setType(Payment.Type.DEPOSIT);
-        dep.setStatus(Payment.Status.PENDING);
+        dep.setType(PaymentType.DEPOSIT);
+        dep.setStatus(PaymentStatus.PENDING);
         dep.setAmount(depositAmt);
         dep.setCurrency("IDR");
         dep = payments.save(dep);
@@ -92,8 +95,8 @@ public class BookingService {
         rent.setBooking(b);
         rent.setOwner(owner);          // <-- REQUIRED
         rent.setBuilding(bldg);        // <-- REQUIRED
-        rent.setType(Payment.Type.RENT);
-        rent.setStatus(Payment.Status.PENDING);
+        rent.setType(PaymentType.RENT);
+        rent.setStatus(PaymentStatus.PENDING);
         rent.setAmount(quote.totalAfterDiscount());
         rent.setCurrency("IDR");
         payments.save(rent);
@@ -106,22 +109,22 @@ public class BookingService {
     @Transactional
     public void activateOnDepositVerified(UUID depositPaymentId) throws InvalidTransactionException {
         Payment p = payments.findById(depositPaymentId).orElseThrow();
-        if (p.getType() != Payment.Type.DEPOSIT) throw new InvalidTransactionException("Not a deposit");
-        if (p.getStatus() == Payment.Status.VERIFIED) throw new InvalidTransactionException("Deposit already verified");
-        if (p.getStatus() != Payment.Status.PAID) throw new InvalidTransactionException("Deposit not paid");
+        if (p.getType() != PaymentType.DEPOSIT) throw new InvalidTransactionException("Not a deposit");
+        if (p.getStatus() ==PaymentStatus.VERIFIED) throw new InvalidTransactionException("Deposit already verified");
+        if (p.getStatus() != PaymentStatus.PAID) throw new InvalidTransactionException("Deposit not paid");
 
-        p.setStatus(Payment.Status.VERIFIED);
+        p.setStatus(PaymentStatus.VERIFIED);
         payments.save(p);
     }
 
     @Transactional
     public void activateOnRentVerified(UUID paymentId) throws InvalidTransactionException {
         Payment p = payments.findById(paymentId).orElseThrow();
-        if (p.getType() != Payment.Type.RENT) throw new InvalidTransactionException("Not a rent");
-        if (p.getStatus() == Payment.Status.VERIFIED) throw new InvalidTransactionException("Rent already verified");
-        if (p.getStatus() != Payment.Status.PAID) throw new InvalidTransactionException("Rent not paid");
+        if (p.getType() != PaymentType.RENT) throw new InvalidTransactionException("Not a rent");
+        if (p.getStatus() == PaymentStatus.VERIFIED) throw new InvalidTransactionException("Rent already verified");
+        if (p.getStatus() != PaymentStatus.PAID) throw new InvalidTransactionException("Rent not paid");
 
-        p.setStatus(Payment.Status.VERIFIED);
+        p.setStatus(PaymentStatus.VERIFIED);
         payments.save(p);
     }
 

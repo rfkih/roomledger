@@ -1,6 +1,7 @@
 package com.roomledger.app.model;
 
 
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -19,7 +20,6 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class Booking extends Audit {
 
-    public enum Status { DRAFT, ACTIVE, ENDED, CANCELLED }
 
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -40,7 +40,7 @@ public class Booking extends Audit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Status status = Status.ACTIVE;
+    private BookingStatus status = BookingStatus.ACTIVE;
 
     @Column(name = "monthly_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal monthlyPrice;

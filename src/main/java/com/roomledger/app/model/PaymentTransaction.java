@@ -25,7 +25,6 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class PaymentTransaction extends Audit {
 
-//    public enum Status { PAID, FAILED, EXPIRED, REFUNDED }
 
     @Id @GeneratedValue
     private UUID id;

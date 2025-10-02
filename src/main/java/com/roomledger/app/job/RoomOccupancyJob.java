@@ -1,7 +1,10 @@
 package com.roomledger.app.job;
 
 import com.roomledger.app.model.Booking;
-import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
+import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import com.roomledger.app.model.Room;
 import com.roomledger.app.repository.BookingRepository;
 import com.roomledger.app.repository.PaymentRepository;
@@ -42,17 +45,17 @@ public class RoomOccupancyJob {
         List<Booking> toOccupy = bookings
                 .findActiveStartingTodayWithVerifiedRentAndRoomNotOccupied(
                         today,
-                        Booking.Status.ACTIVE,
-                        Room.Status.OCCUPIED,
-                        Payment.Type.RENT,
-                        Payment.Status.VERIFIED
+                        BookingStatus.ACTIVE,
+                        RoomStatus.OCCUPIED,
+                        PaymentType.RENT,
+                        PaymentStatus.VERIFIED
                 );
 
         int occupied = 0;
         for (Booking b : toOccupy) {
             Room r = b.getRoom();
-            if (r != null && r.getStatus() != Room.Status.OCCUPIED) {
-                r.setStatus(Room.Status.OCCUPIED);
+            if (r != null && r.getStatus() != RoomStatus.OCCUPIED) {
+                r.setStatus(RoomStatus.OCCUPIED);
                 rooms.save(r);
                 occupied++;
                 log.info("[RoomOccupancyJob] OCCUPIED room {} for booking {} (startDate={}).", r.getId(), b.getId(), today);
@@ -64,19 +67,19 @@ public class RoomOccupancyJob {
         List<Booking> toRelease = bookings
                 .findActiveStartingTodayWithPendingRentOnlyAndRoomNotAvailable(
                         today,
-                        Booking.Status.ACTIVE,
-                        Room.Status.AVAILABLE,
-                        Payment.Type.RENT,
-                        Payment.Status.PENDING,
-                        Payment.Status.VERIFIED
+                        BookingStatus.ACTIVE,
+                        RoomStatus.AVAILABLE,
+                        PaymentType.RENT,
+                        PaymentStatus.PENDING,
+                        PaymentStatus.VERIFIED
                 );
 
         int released = 0;
         int cancelledPayments = 0;
         for (Booking b : toRelease) {
             Room r = b.getRoom();
-            if (r != null && r.getStatus() != Room.Status.AVAILABLE) {
-                r.setStatus(Room.Status.AVAILABLE);
+            if (r != null && r.getStatus() != RoomStatus.AVAILABLE) {
+                r.setStatus(RoomStatus.AVAILABLE);
                 rooms.save(r);
                 released++;
                 log.warn("[RoomOccupancyJob] AVAILABLE room {} for booking {} (rent still PENDING at startDate={}).",
@@ -84,7 +87,7 @@ public class RoomOccupancyJob {
             }
 
             int cancelled = payments.cancelPendingRentByBooking(
-                    b.getId(), Payment.Type.RENT, Payment.Status.PENDING, Payment.Status.CANCELLED, now
+                    b.getId(), PaymentType.RENT, PaymentStatus.PENDING, PaymentStatus.CANCELLED, now
             );
             cancelledPayments += cancelled;
 
@@ -111,8 +114,8 @@ public class RoomOccupancyJob {
 
         List<Booking> ended = bookings.findActiveEndedWithRoomNotAvailable(
                 today,
-                Booking.Status.ACTIVE,
-                Room.Status.AVAILABLE
+                BookingStatus.ACTIVE,
+                RoomStatus.AVAILABLE
         );
 
         if (ended.isEmpty()) {
@@ -123,8 +126,8 @@ public class RoomOccupancyJob {
         int changed = 0;
         for (Booking b : ended) {
             Room r = b.getRoom();
-            if (r != null && r.getStatus() != Room.Status.AVAILABLE) {
-                r.setStatus(Room.Status.AVAILABLE);
+            if (r != null && r.getStatus() != RoomStatus.AVAILABLE) {
+                r.setStatus(RoomStatus.AVAILABLE);
                 rooms.save(r);
                 changed++;
                 log.info("[RoomOccupancyJob] Room {} set to AVAILABLE after booking {} ended (endDate={}, today={}).",

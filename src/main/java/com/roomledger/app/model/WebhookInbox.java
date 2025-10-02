@@ -27,7 +27,7 @@ public class WebhookInbox extends Audit {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", columnDefinition = "jsonb", nullable = false)
-    private JsonNode payload;                 // <-- MUST NOT BE NULL
+    private JsonNode payload;
 
     @Column(nullable = false)
     private boolean processed = false;

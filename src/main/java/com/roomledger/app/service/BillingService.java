@@ -4,6 +4,7 @@ import com.roomledger.app.dto.ActiveBillingResponse;
 import com.roomledger.app.dto.BillingQuoteResponse;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.Booking;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
 import com.roomledger.app.model.Payment;
 import com.roomledger.app.model.Room;
 import com.roomledger.app.model.Tenant;
@@ -207,7 +208,7 @@ public class BillingService {
 
     @Transactional(readOnly = true)
     public List<ActiveBillingResponse> activeByPhone(String phone) {
-        List<Payment> list = payments.findActiveBillingByPhoneFetch(phone, Booking.Status.CANCELLED);
+        List<Payment> list = payments.findActiveBillingByPhoneFetch(phone, String.valueOf(BookingStatus.CANCELLED));
         return list.stream().map(p -> {
             Booking b = p.getBooking();
             Tenant t = b.getTenant();

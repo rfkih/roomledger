@@ -1,12 +1,13 @@
 package com.roomledger.app.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomledger.app.client.XenditClientService;
 import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidInputException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.*;
+import com.roomledger.app.model.Commons.Enum.*;
+import com.roomledger.app.model.Payment;
 import com.roomledger.app.repository.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,8 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,16 +50,15 @@ public class PaymentService {
     }
 
 
-
     @Transactional
-    public InquiryPaymentResponse inquiryPayment(UUID bookingId, Payment.Type paymentType)
+    public InquiryPaymentResponse inquiryPayment(UUID bookingId, PaymentType paymentType)
             throws InvalidTransactionException {
 
         Booking booking = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
         List<Payment> payments = new ArrayList<>(
-                paymentRepo.findByBookingIdAndStatus(booking.getId(), Payment.Status.WAITING_FOR_PAYMENT)
+                paymentRepo.findByBookingIdAndStatus(booking.getId(), PaymentStatus.WAITING_FOR_PAYMENT)
         );
 
         if (payments.isEmpty()) {
@@ -68,19 +66,19 @@ public class PaymentService {
                 case DEPOSIT: {
                     payments.addAll(
                             paymentRepo.findByBookingIdAndTypeAndStatus(
-                                    booking.getId(), Payment.Type.DEPOSIT, Payment.Status.PENDING
+                                    booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PENDING
                             )
                     );
                     break;
                 }
                 case RENT: {
                     List<Payment> depositPending = paymentRepo.findByBookingIdAndTypeAndStatus(
-                            booking.getId(), Payment.Type.DEPOSIT, Payment.Status.PENDING
+                            booking.getId(), PaymentType.DEPOSIT, PaymentStatus.PENDING
                     );
                     if (!depositPending.isEmpty()) payments.addAll(depositPending);
 
                     List<Payment> rentPending = paymentRepo.findByBookingIdAndTypeAndStatus(
-                            booking.getId(), Payment.Type.RENT, Payment.Status.PENDING
+                            booking.getId(), PaymentType.RENT, PaymentStatus.PENDING
                     );
                     payments.addAll(rentPending);
                     break;
@@ -88,7 +86,7 @@ public class PaymentService {
                 default: {
                     payments.addAll(
                             paymentRepo.findByBookingIdAndStatus(
-                                    booking.getId(), Payment.Status.PENDING
+                                    booking.getId(), PaymentStatus.PENDING
                             )
                     );
                     break;
@@ -140,8 +138,8 @@ public class PaymentService {
                 paymentTransactionRepo.save(tx);
             }
 
-            if (p.getStatus() == Payment.Status.PENDING) {
-                p.setStatus(Payment.Status.WAITING_FOR_PAYMENT);
+            if (p.getStatus() == PaymentStatus.PENDING) {
+                p.setStatus(PaymentStatus.WAITING_FOR_PAYMENT);
                 paymentRepo.save(p);
             }
         }
@@ -187,7 +185,7 @@ public class PaymentService {
         Owner owner = bldg.getOwner();
 
 
-        Optional<PaymentAttempt> paymentAttempt = paymentAttemptRepository.findAllByBookingIdAndStatus(String.valueOf(bookingId), String.valueOf(PaymentAttempt.Status.WAITING_FOR_PAYMENT));
+        Optional<PaymentAttempt> paymentAttempt = paymentAttemptRepository.findAllByBookingIdAndStatus(String.valueOf(bookingId), String.valueOf(PaymentAttemptStatus.WAITING_FOR_PAYMENT));
 
         if (paymentAttempt.isPresent()) {
             throw new InvalidTransactionException("VA / QR already generated for this booking: " + booking.getId() + " - " + paymentAttempt.get().getStatus());
@@ -195,12 +193,11 @@ public class PaymentService {
 
 
         List<Payment> payments = paymentRepo.findByBookingIdAndStatus(
-                bookingId, Payment.Status.WAITING_FOR_PAYMENT);
+                bookingId, PaymentStatus.WAITING_FOR_PAYMENT);
 
         if (payments.isEmpty()) {
             throw new InvalidTransactionException("Payment not found for booking: " + bookingId);
         }
-
 
 
         long totalAmount = payments.stream()
@@ -228,7 +225,7 @@ public class PaymentService {
         xenditPaymentRequest.setChannelProperties(channelProperties);
 
         // Call Xendit
-        PaymentResponseDTO resp = xendit.createPay( xenditPaymentRequest);
+        PaymentResponseDTO resp = xendit.createPay(xenditPaymentRequest);
         log.info("Update payment with gateway data: " + resp.getActions().getFirst().getValue());
 
         for (Payment p : payments) {
@@ -240,14 +237,14 @@ public class PaymentService {
             p.setChannelCode(bankChannelCode);
             p.setPrId(resp.getPaymentRequestId());
             p.setChannelCode(resp.getChannelCode());
-            if (bankChannelCode.equals("QRIS")){
+            if (bankChannelCode.equals("QRIS")) {
                 p.setQrisQrString(resp.getActions().getFirst().getValue());
-            }else {
+            } else {
                 p.setVaNumber(resp.getActions().getFirst().getValue());
             }
             p.setExpiresAt(resp.getChannelProperties().getExpiresAt());
             p.setActionsJson(resp.getActions().toString());
-            p.setChannelPropertiesJson( resp.getChannelProperties().toString());
+            p.setChannelPropertiesJson(resp.getChannelProperties().toString());
         }
 
         paymentRepo.saveAll(payments);
@@ -258,8 +255,8 @@ public class PaymentService {
         at.setOwner(owner);
         at.setBuilding(bldg);
         at.setChannelCode(resp.getChannelCode());
-        at.setType(PaymentAttempt.Type.PAY);
-        at.setStatus(PaymentAttempt.Status.WAITING_FOR_PAYMENT);
+        at.setType(PaymentAttemptType.PAY);
+        at.setStatus(PaymentAttemptStatus.WAITING_FOR_PAYMENT);
         at.setRequestAmount(resp.getRequestAmount());
         at.setCurrency("IDR");
         at.setPrId(resp.getPaymentRequestId());
@@ -294,7 +291,7 @@ public class PaymentService {
         Booking b = bookingRepo.findById(bookingId)
                 .orElseThrow(() -> new InvalidTransactionException("Booking not found: " + bookingId));
 
-        if (b.getStatus() == Booking.Status.CANCELLED) {
+        if (b.getStatus() == BookingStatus.CANCELLED) {
             throw new InvalidTransactionException("Booking already cancelled");
         }
 
@@ -306,10 +303,10 @@ public class PaymentService {
             throw new InvalidInputException("method is required");
         }
 
-        final LocalDateTime now     = LocalDateTime.now(clock.zone());
-        final LocalDateTime paidAt  = (req.paidAt() != null ? req.paidAt() : now);
-        final String method         = req.method().trim().toUpperCase(Locale.ROOT);
-        final String reference      = (req.reference() == null ? null : req.reference().trim());
+        final LocalDateTime now = LocalDateTime.now(clock.zone());
+        final LocalDateTime paidAt = (req.paidAt() != null ? req.paidAt() : now);
+        final String method = req.method().trim().toUpperCase(Locale.ROOT);
+        final String reference = (req.reference() == null ? null : req.reference().trim());
 
         // Update pending DEPOSIT
         int depUpdated = 0;
@@ -322,11 +319,11 @@ public class PaymentService {
 
         boolean depositAlreadyPaidOrVerified =
                 depUpdated > 0
-                        || paymentRepo.existsByBookingIdAndTypeAndStatus(bookingId, Payment.Type.DEPOSIT, Payment.Status.PAID)
-                        || paymentRepo.existsByBookingIdAndTypeAndStatus(bookingId, Payment.Type.DEPOSIT, Payment.Status.VERIFIED);
+                        || paymentRepo.existsByBookingIdAndTypeAndStatus(bookingId, PaymentType.DEPOSIT, PaymentStatus.PAID)
+                        || paymentRepo.existsByBookingIdAndTypeAndStatus(bookingId, PaymentType.DEPOSIT, PaymentStatus.VERIFIED);
 
-        if (depositAlreadyPaidOrVerified && b.getStatus() != Booking.Status.ACTIVE) {
-            b.setStatus(Booking.Status.ACTIVE);
+        if (depositAlreadyPaidOrVerified && b.getStatus() != BookingStatus.ACTIVE) {
+            b.setStatus(BookingStatus.ACTIVE);
             b.setUpdatedAt(now);
             bookingRepo.saveAndFlush(b);
         }
@@ -342,19 +339,19 @@ public class PaymentService {
         List<Payment> paidOrVerified = paymentRepo
                 .findByBookingIdAndTypeInAndStatusInOrderByPaidAtDesc(
                         bookingId,
-                        List.of(Payment.Type.DEPOSIT, Payment.Type.RENT),
-                        List.of(Payment.Status.PAID)
+                        List.of(PaymentType.DEPOSIT, PaymentType.RENT),
+                        List.of(PaymentStatus.PAID)
                 );
         Optional<Payment> depositPaymentOpt = paidOrVerified.stream()
-                .filter(p -> p.getType() == Payment.Type.DEPOSIT)
+                .filter(p -> p.getType() == PaymentType.DEPOSIT)
                 .findFirst();
 
         Optional<Payment> rentPaymentOpt = paidOrVerified.stream()
-                .filter(p -> p.getType() == Payment.Type.RENT)
+                .filter(p -> p.getType() == PaymentType.RENT)
                 .findFirst();
 
         UUID depositId = depositPaymentOpt.map(Payment::getId).orElse(null);
-        UUID rentId    = rentPaymentOpt.map(Payment::getId).orElse(null);
+        UUID rentId = rentPaymentOpt.map(Payment::getId).orElse(null);
 
         return new BookingPaymentResponse(
                 scope,
@@ -366,54 +363,5 @@ public class PaymentService {
         );
     }
 
-
-    /* ======================== helpers ======================== */
-
-    private String extractQrString(Map<String,Object> resp) {
-        Object actionsObj = resp.get("actions");
-        if (actionsObj instanceof List<?> list) {
-            for (Object o : list) {
-                if (o instanceof Map<?,?> m) {
-                    if ("QR_CODE".equals(String.valueOf(m.get("descriptor")))) {
-                        Object v = (m.get("qr_string") != null) ? m.get("qr_string") : m.get("value");
-                        return v == null ? null : String.valueOf(v);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    private LocalDateTime toLocalUtc(String iso) {
-        if (iso == null) return null;
-        try {
-            return OffsetDateTime.parse(iso).toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
-        } catch (Exception e) {
-            try {
-                return LocalDateTime.parse(iso);
-            } catch (Exception ignore) {
-                return null;
-            }
-        }
-    }
-
-    private String safeJson(Object node) {
-        try { return (node == null) ? null : M.writeValueAsString(node); }
-        catch (Exception e) { return null; }
-    }
-
-    @SuppressWarnings("unchecked")
-    private JsonNode safeJsonMap(Object node) {
-        // if your entity column is JSONB(Map<String,Object>) — otherwise not needed
-        if (node == null) return (JsonNode) Map.of();
-        if (node instanceof Map<?,?> m) return (JsonNode) m;
-        try {
-            return (JsonNode) M.readValue(M.writeValueAsBytes(node), Map.class);
-        } catch (Exception e) {
-            return (JsonNode) Map.of();
-        }
-    }
-
-    private static String asString(Object o) { return o == null ? null : String.valueOf(o); }
 }
 

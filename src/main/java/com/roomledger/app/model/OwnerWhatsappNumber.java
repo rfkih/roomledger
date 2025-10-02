@@ -1,5 +1,6 @@
 package com.roomledger.app.model;
 
+import com.roomledger.app.model.Commons.Enum.OwnerWhatsappNumberStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,8 +17,6 @@ import java.util.UUID;
 @Getter @Setter
 public class OwnerWhatsappNumber extends Audit {
 
-    public enum Status { ACTIVE, INACTIVE }
-
     @Id @GeneratedValue
     private UUID id;
 
@@ -25,7 +24,6 @@ public class OwnerWhatsappNumber extends Audit {
     @JoinColumn(name = "owner_id", nullable = false)
     private Owner owner;
 
-    // ✅ Join only by building_id (no owner_id here)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "building_id")
     private Building building;
@@ -41,7 +39,7 @@ public class OwnerWhatsappNumber extends Audit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
-    private Status status = Status.ACTIVE;
+    private OwnerWhatsappNumberStatus status = OwnerWhatsappNumberStatus.ACTIVE;
 }
 
 

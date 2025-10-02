@@ -1,5 +1,7 @@
 package com.roomledger.app.model;
 
+import com.roomledger.app.model.Commons.Enum.PaymentAttemptStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentAttemptType;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,8 +20,6 @@ import java.util.UUID;
 @EntityListeners(AuditingEntityListener.class)
 public class PaymentAttempt extends Audit {
 
-    public enum Type { PAY, REUSABLE_PAYMENT_CODE }
-    public enum Status { PENDING, WAITING_FOR_PAYMENT, PAID, FAILED, EXPIRED }
 
     @Id @GeneratedValue
     private UUID id;
@@ -50,11 +50,11 @@ public class PaymentAttempt extends Audit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
-    private Type type;
+    private PaymentAttemptType type;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
-    private Status status;
+    private PaymentAttemptStatus status;
 
     @Column(name = "request_amount")
     private Long requestAmount;

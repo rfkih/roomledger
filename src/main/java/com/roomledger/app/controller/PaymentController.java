@@ -2,7 +2,7 @@ package com.roomledger.app.controller;
 
 import com.roomledger.app.dto.*;
 import com.roomledger.app.exthandler.InvalidTransactionException;
-import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import com.roomledger.app.service.PaymentService;
 import com.roomledger.app.util.ResponseCode;
 import com.roomledger.app.util.ResponseService;
@@ -55,7 +55,7 @@ public class PaymentController {
     public ResponseService inquirePayment(
             @RequestBody @Valid InquiryPaymentRequest req) throws InvalidTransactionException {
 
-        Payment.Type type = Payment.Type.valueOf(req.paymentType().toUpperCase());
+        PaymentType type = PaymentType.valueOf(req.paymentType().toUpperCase());
         InquiryPaymentResponse result = paymentService.inquiryPayment(req.bookingId(), type);
         return ResponseUtil.setResponse(
                 HttpStatus.OK.value(),

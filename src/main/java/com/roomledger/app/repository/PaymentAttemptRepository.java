@@ -20,4 +20,6 @@ public interface PaymentAttemptRepository extends JpaRepository<PaymentAttempt, 
             @Param("status") String status
     );
 
+    Optional<PaymentAttempt> findByPrId(String prId);
+
 }

@@ -2,8 +2,10 @@ package com.roomledger.app.job;
 
 import com.roomledger.app.exthandler.InvalidTransactionException;
 import com.roomledger.app.model.*;
+import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
 import com.roomledger.app.repository.*;
-import com.roomledger.app.service.BillingService;
 import com.roomledger.app.service.ClockService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -53,7 +55,7 @@ public class MonthlyBillingJob {
 
             Optional<Payment> existingForPeriod =
                     payments.findByBookingIdAndTypeAndPeriodMonth(
-                            b.getId(), Payment.Type.RENT, nextMonthStart);
+                            b.getId(), PaymentType.RENT, nextMonthStart);
 
             if (existingForPeriod.isEmpty()) {
                 log.info("Creates new Billing for next month for booking {} start date {}, end date {}, next month {}."
@@ -61,8 +63,8 @@ public class MonthlyBillingJob {
 
                 Payment p = new Payment();
                 p.setBooking(b);
-                p.setType(Payment.Type.RENT);
-                p.setStatus(Payment.Status.PENDING);
+                p.setType(PaymentType.RENT);
+                p.setStatus(PaymentStatus.PENDING);
                 p.setAmount(b.getMonthlyPrice());
                 p.setPeriodMonth(nextMonthStart);
                 payments.save(p);

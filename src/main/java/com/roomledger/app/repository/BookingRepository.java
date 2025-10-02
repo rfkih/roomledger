@@ -2,7 +2,10 @@ package com.roomledger.app.repository;
 
 
 import com.roomledger.app.model.Booking;
-import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
+import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import com.roomledger.app.model.Room;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -38,7 +41,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 """)
     List<Booking> findAllActiveAutoRenew();
 
-    List<Booking> findByIdInAndStatus(Iterable<UUID> ids, Booking.Status status);
+    List<Booking> findByIdInAndStatus(Iterable<UUID> ids, BookingStatus status);
 
     @Query("""
         select b
@@ -56,10 +59,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         """)
     List<Booking> findActiveStartingTodayWithVerifiedRentAndRoomNotOccupied(
             LocalDate startDate,
-            Booking.Status activeStatus,
-            Room.Status occupiedStatus,
-            Payment.Type rentType,
-            Payment.Status verifiedStatus
+            BookingStatus activeStatus,
+            RoomStatus occupiedStatus,
+            PaymentType rentType,
+            PaymentStatus verifiedStatus
     );
 
     // Candidates to AVAILABLE (only PENDING rent, no VERIFIED)
@@ -85,11 +88,11 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         """)
     List<Booking> findActiveStartingTodayWithPendingRentOnlyAndRoomNotAvailable(
             LocalDate startDate,
-            Booking.Status activeStatus,
-            Room.Status availableStatus,
-            Payment.Type rentType,
-            Payment.Status pendingStatus,
-            Payment.Status verifiedStatus
+            BookingStatus activeStatus,
+            RoomStatus availableStatus,
+            PaymentType rentType,
+            PaymentStatus pendingStatus,
+            PaymentStatus verifiedStatus
     );
 
     /** Bookings that already ended (endDate < today), still ACTIVE, and room not AVAILABLE. */
@@ -103,8 +106,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
         """)
     List<Booking> findActiveEndedWithRoomNotAvailable(
             LocalDate today,
-            Booking.Status activeStatus,
-            Room.Status availableStatus
+            BookingStatus activeStatus,
+            RoomStatus availableStatus
     );
 
     @Query("""

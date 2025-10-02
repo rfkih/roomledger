@@ -1,5 +1,7 @@
 package com.roomledger.app.repository;
 
+import com.roomledger.app.model.Commons.Enum.BookingStatus;
+import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import com.roomledger.app.model.Room;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,7 +26,7 @@ public interface RoomRepository  extends JpaRepository<Room, UUID> {
 """)
     List<Room> inquiryNoDates(
             @Param("buildingId") UUID buildingId,
-            @Param("status")     Room.Status status,
+            @Param("status") RoomStatus status,
             @Param("minPrice")   BigDecimal minPrice,
             @Param("maxPrice")   BigDecimal maxPrice
     );
@@ -46,11 +48,11 @@ public interface RoomRepository  extends JpaRepository<Room, UUID> {
 """)
     List<Room> inquiryWithDates(
             @Param("buildingId") UUID buildingId,
-            @Param("status")     Room.Status status,
+            @Param("status")     RoomStatus status,
             @Param("minPrice")   BigDecimal minPrice,
             @Param("maxPrice")   BigDecimal maxPrice,
             @Param("startDate")  java.time.LocalDate startDate,
             @Param("endDate")    java.time.LocalDate endDate,
-            @Param("cancelled")  com.roomledger.app.model.Booking.Status cancelled
+            @Param("cancelled")  BookingStatus cancelled
     );
 }

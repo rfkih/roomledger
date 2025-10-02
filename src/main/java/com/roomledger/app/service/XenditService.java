@@ -4,9 +4,14 @@ package com.roomledger.app.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.roomledger.app.exthandler.InvalidTransactionException;
+import com.roomledger.app.model.Commons.Enum.PaymentAttemptStatus;
 import com.roomledger.app.model.Payment;
+import com.roomledger.app.model.Commons.Enum.PaymentStatus;
+import com.roomledger.app.model.Commons.Enum.PaymentType;
+import com.roomledger.app.model.PaymentAttempt;
 import com.roomledger.app.model.PaymentTransaction;
 import com.roomledger.app.model.WebhookInbox;
+import com.roomledger.app.repository.PaymentAttemptRepository;
 import com.roomledger.app.repository.PaymentRepository;
 import com.roomledger.app.repository.PaymentTransactionRepository;
 import com.roomledger.app.repository.WebhookInboxRepository;
@@ -27,6 +32,7 @@ import java.time.ZoneOffset;
 @Slf4j
 public class XenditService {
 
+    private final PaymentAttemptRepository paymentAttemptRepository;
     @Value("${xendit.webhook.token}")
     private String configuredToken;
 
@@ -38,11 +44,12 @@ public class XenditService {
 
 
     public XenditService(WebhookInboxRepository inboxRepo,
-                                PaymentRepository paymentRepo,
-                                PaymentTransactionRepository trxRepo) {
+                         PaymentRepository paymentRepo,
+                         PaymentTransactionRepository trxRepo, PaymentAttemptRepository paymentAttemptRepository) {
         this.inboxRepo = inboxRepo;
         this.paymentRepo = paymentRepo;
         this.trxRepo = trxRepo;
+        this.paymentAttemptRepository = paymentAttemptRepository;
     }
 
     public void verifyTokenOrThrow(String token) {
@@ -111,14 +118,28 @@ public class XenditService {
 
         //Load all WAITING payments (DEPOSIT/RENT) for this booking
         List<Payment> waiting = paymentRepo
-                .findByBookingIdAndStatus(bookingId, Payment.Status.WAITING_FOR_PAYMENT)
+                .findByBookingIdAndStatus(bookingId, PaymentStatus.WAITING_FOR_PAYMENT)
                 .stream()
-                .filter(p -> p.getType() == Payment.Type.DEPOSIT || p.getType() == Payment.Type.RENT)
+                .filter(p -> p.getType() == PaymentType.DEPOSIT || p.getType() == PaymentType.RENT)
                 .toList();
 
         if (waiting.isEmpty()) {
             throw new InvalidTransactionException("No WAITING (DEPOSIT/RENT) payments for booking " + bookingId);
         }
+
+        Optional<PaymentAttempt> paymentAttempt = paymentAttemptRepository.findByPrId(prId);
+
+        if (paymentAttempt.isEmpty()) {
+            throw new InvalidTransactionException("No payment attempt for booking " + bookingId + " and prId " + prId);
+        }
+
+        log.info("status from xendit: " + status);
+
+        paymentAttempt.get().setStatus(PaymentAttemptStatus.valueOf(status));
+        paymentAttempt.get().setUpdatedAt(LocalDateTime.now());
+        paymentAttempt.get().setUpdatedBy("System");
+
+        paymentAttemptRepository.save(paymentAttempt.get());
 
         //Sum expected amount (normalize to integer rupiah once)
         long expectedMinor = waiting.stream()
@@ -203,17 +224,17 @@ public class XenditService {
                 case "SUCCEEDED", "PAID" -> {
                     LocalDateTime effectivePaidAt = (paidAt != null ? paidAt : LocalDateTime.now(ZoneOffset.UTC));
                     for (Payment p : waiting) {
-                        p.setStatus(Payment.Status.PAID);
+                        p.setStatus(PaymentStatus.PAID);
                         p.setPaidAt(effectivePaidAt);
                     }
                     paymentRepo.saveAll(waiting);
                 }
                 case "EXPIRED" -> {
-                    waiting.forEach(p -> p.setStatus(Payment.Status.EXPIRED));
+                    waiting.forEach(p -> p.setStatus(PaymentStatus.EXPIRED));
                     paymentRepo.saveAll(waiting);
                 }
                 case "FAILED" -> {
-                    waiting.forEach(p -> p.setStatus(Payment.Status.FAILED));
+                    waiting.forEach(p -> p.setStatus(PaymentStatus.FAILED));
                     paymentRepo.saveAll(waiting);
                 }
                 default -> { /* ignore interim statuses */ }

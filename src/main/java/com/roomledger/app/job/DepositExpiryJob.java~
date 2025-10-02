@@ -41,7 +41,7 @@ public class DepositExpiryJob {
         this.clock = clock;
     }
 
-    @Scheduled(cron = "0 1 * * * *", zone = "Asia/Jakarta")//run for every 1 minute
+    @Scheduled(cron = "1 1 * * * *", zone = "Asia/Jakarta")//run for every 1 minute
     @Transactional
     public void cancelDraftsWithoutDeposit() {
         final int ttl = params.getInt("DEPOSIT_TTL_MINUTES", 1000);
