@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import javax.net.ssl.SSLHandshakeException;
 
@@ -61,6 +62,7 @@ public class ExceptionHandlerConfig {
 
     @ExceptionHandler(value = {
             BadRequestException.class,
+
     })
     public ResponseEntity<ResponseDto> badRequest(HttpServletRequest req, Exception e) {
         ResponseDto errorResponse = ResponseDto.builder()
@@ -95,7 +97,8 @@ public class ExceptionHandlerConfig {
     @ExceptionHandler(value = {
             InvalidInputException.class,
             MethodArgumentNotValidException.class,
-            IllegalArgumentException.class
+            IllegalArgumentException.class,
+            MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<ResponseDto> invalidInput(HttpServletRequest req, Exception e) {
         ResponseDto errorResponse = ResponseDto.builder()

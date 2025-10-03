@@ -11,10 +11,39 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface RoomRepository  extends JpaRepository<Room, UUID> {
+
+    @Query(
+            value = """
+      SELECT EXISTS (
+        SELECT 1
+        FROM rooms r
+        WHERE r.room_no = :roomNo
+          AND r.building_id = :buildingId
+      )
+      """,
+            nativeQuery = true
+    )
+    boolean existsByRoomNoAndBuildingId(
+            @Param("roomNo") String roomNo,
+            @Param("buildingId") UUID buildingId
+    );
+    @Query(value = """
+      SELECT r.*
+      FROM rooms r
+      WHERE r.room_no = :roomNo
+        AND r.building_id = :buildingId
+      LIMIT 1
+      """, nativeQuery = true)
+    Optional<Room> findByRoomNoAndBuildingId(
+            @Param("roomNo") String roomNo,
+            @Param("buildingId") UUID buildingId
+    );
+
 
     @Query("""
   select r from Room r

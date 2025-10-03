@@ -1,13 +1,15 @@
 package com.roomledger.app.controller;
 
+import com.roomledger.app.dto.CreateRoomRequest;
 import com.roomledger.app.dto.RoomInquiryRequest;
+import com.roomledger.app.dto.RoomResponse;
 import com.roomledger.app.exthandler.InvalidInputException;
 import com.roomledger.app.exthandler.InvalidTransactionException;
-import com.roomledger.app.model.Booking;
 import com.roomledger.app.model.Commons.Enum.BookingStatus;
 import com.roomledger.app.model.Commons.Enum.RoomStatus;
 import com.roomledger.app.model.Room;
 import com.roomledger.app.repository.RoomRepository;
+import com.roomledger.app.service.RoomService;
 import com.roomledger.app.util.ResponseCode;
 import com.roomledger.app.util.ResponseService;
 import com.roomledger.app.util.ResponseUtil;
@@ -28,9 +30,11 @@ public class RoomController {
     private final RoomRepository roomRepository;
     @Value("${application.code}")
     private String applicationCode;
+    private final RoomService roomService;
 
-    public RoomController(RoomRepository roomRepository) {
+    public RoomController(RoomRepository roomRepository, RoomService roomService) {
         this.roomRepository = roomRepository;
+        this.roomService = roomService;
     }
 
     @PostMapping("/inquiry")
@@ -48,7 +52,7 @@ public class RoomController {
         LocalDate start = req.startDate();
         LocalDate end   = req.endDate();
         if (start != null && end != null && start.isAfter(end)) {
-            throw new InvalidTransactionException("startDate must be <= endDate");
+            throw new InvalidTransactionException("startDate must be <= endDate " + req.startDate());
         }
 
         List<Room> result = (start != null && end != null)
@@ -65,6 +69,22 @@ public class RoomController {
                 ResponseCode.SUCCESS.getDescription(),
                 result
                 ).getBody();
+    }
+
+    @PostMapping
+    public ResponseService create(@Valid @RequestBody CreateRoomRequest body) throws InvalidTransactionException {
+        RoomResponse created = roomService.createRoom(body);
+//        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+//                .path("/{id}")
+//                .buildAndExpand(created.id())
+//                .toUri();
+        return ResponseUtil.setResponse(
+                HttpStatus.OK.value(),
+                applicationCode,
+                ResponseCode.SUCCESS.getCode(),
+                ResponseCode.SUCCESS.getDescription(),
+                created
+        ).getBody();
     }
 }
 

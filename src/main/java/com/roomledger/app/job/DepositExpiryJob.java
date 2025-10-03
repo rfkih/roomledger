@@ -49,11 +49,9 @@ public class DepositExpiryJob {
 
         LocalDateTime cutoff = clock.now().minusMinutes(ttl);
 
-        log.info("cut off time : {} " , cutoff);
         // Find overdue deposits
         List<Payment>  overdueDeposits = payments.findByTypeAndStatusAndCreatedAtBefore(
                 PaymentType.DEPOSIT.getCode(), PaymentStatus.PENDING.getCode(), cutoff);
-        log.info("overdue size : {}" , overdueDeposits.size() );
         Set<UUID> bookingIdsToCancel = overdueDeposits.stream()
                 .map(Payment::getBooking)
                 .filter(Objects::nonNull)
@@ -65,7 +63,7 @@ public class DepositExpiryJob {
         }
 
         List<Booking> drafts = bookings.findByIdInAndStatus(bookingIdsToCancel, BookingStatus.DRAFT);
-        log.info("drafts size : {}" , drafts.size() );
+
         // Update bookings and cancel pending payments
         drafts.forEach(b -> {
             b.setStatus(BookingStatus.CANCELLED);
