@@ -40,4 +40,8 @@ public class Building extends Audit {
 
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 16)
     private BuildingStatus status = BuildingStatus.ACTIVE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_whatsapp_id")
+    private OwnerWhatsappNumber defaultWhatsapp;
 }

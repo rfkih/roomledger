@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;
 
-public interface BuildingRepository  extends JpaRepository<Building, UUID> {}
+public interface BuildingRepository  extends JpaRepository<Building, UUID> {
+    boolean existsByOwnerIdAndCodeIgnoreCase(UUID ownerId, String code);
+}

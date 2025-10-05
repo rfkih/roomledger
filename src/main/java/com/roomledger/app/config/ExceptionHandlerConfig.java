@@ -4,6 +4,7 @@ package com.roomledger.app.config;
 import com.roomledger.app.dto.ResponseDto;
 import com.roomledger.app.exthandler.*;
 import com.roomledger.app.util.ResponseCode;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -111,7 +112,8 @@ public class ExceptionHandlerConfig {
 
     @ExceptionHandler(value = {
             InvalidDataAccessResourceUsageException.class,
-            DataIntegrityViolationException.class
+            DataIntegrityViolationException.class,
+            EntityNotFoundException.class
 
     })
     public ResponseEntity<ResponseDto> databaseException(HttpServletRequest req, Exception e) {
