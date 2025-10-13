@@ -1,0 +1,145 @@
+package com.roomledger.app.client;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.roomledger.app.exthandler.ClientErrorException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.io.IOException;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Client service for interacting with the WhatsApp Cloud API (Meta Graph API).
+ * You can send text messages, media, templates, etc.
+ */
+@Service
+@Slf4j
+public class WhatsappClientService {
+
+    private final RestClient whatsapp;
+    private final String phoneNumberId;
+
+    @Value("${whatsapp.webhook.token}")
+    private String accessToken;
+
+    public WhatsappClientService(
+            @Qualifier("whatsappRestClient") RestClient whatsapp
+    ) {
+        this.whatsapp = whatsapp;
+        this.phoneNumberId = System.getenv("WHATSAPP_PHONE_NUMBER_ID"); // or use @Value("${whatsapp.phone-number-id}")
+            }
+
+    /* ========================================================
+       BASIC: Send text message to WhatsApp Business customer
+       ======================================================== */
+
+    public Map<String, Object> sendTextMessage(String to, String message) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("messaging_product", "whatsapp");
+        body.put("to", to);
+        body.put("type", "text");
+        body.put("text", Map.of("body", message));
+
+        return post("/" + phoneNumberId + "/messages", body);
+    }
+
+    /* ========================================================
+       ADVANCED: Send template (pre-approved message)
+       ======================================================== */
+
+    public Map<String, Object> sendTemplateMessage(String to, String templateName, String languageCode) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("messaging_product", "whatsapp");
+        body.put("to", to);
+        body.put("type", "template");
+        body.put("template", Map.of(
+                "name", templateName,
+                "language", Map.of("code", languageCode)
+        ));
+        return post("/" + phoneNumberId + "/messages", body);
+    }
+
+    /* ========================================================
+       ADVANCED: Send media (image, document, etc.)
+       ======================================================== */
+
+    public Map<String, Object> sendImage(String to, String imageUrl, String caption) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("messaging_product", "whatsapp");
+        body.put("to", to);
+        body.put("type", "image");
+        body.put("image", Map.of("link", imageUrl, "caption", caption));
+        return post("/" + phoneNumberId + "/messages", body);
+    }
+
+    /* ========================================================
+       INTERNAL HELPERS
+       ======================================================== */
+
+    private Map<String, Object> post(String uri, Map<String, Object> body) {
+        String idempotencyKey = UUID.randomUUID().toString();
+
+        try {
+            // Perform the HTTP POST
+            String rawResponse = whatsapp.post()
+                    .uri(uri)
+                    .header("Authorization", "Bearer " + accessToken)
+                    .header("Content-Type", "application/json")
+                    .header("Idempotency-Key", idempotencyKey)
+                    .body(body)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        String errorBody = "(no body)";
+                        try {
+                            if (res.getBody() != null) {
+                                errorBody = new String(res.getBody().readAllBytes());
+                            }
+                        } catch (IOException ignored) {
+                        }
+                        throw new ClientErrorException(
+                                "HTTP " + res.getStatusCode().value() +
+                                        " while calling WhatsApp API.\nResponse: " + errorBody
+                        );
+                    })
+                    .body(String.class); // ← read as String to avoid converter issue
+
+            // Try to parse the raw JSON if possible
+            Map<String, Object> parsedResponse = new ObjectMapper().readValue(rawResponse, Map.class);
+            log.info("✅ WhatsApp API response: {}", parsedResponse);
+            return parsedResponse;
+
+        } catch (ClientErrorException e) {
+            // Re-throw custom API error
+            log.info("❌ WhatsApp API error: {}", e.getMessage());
+            log.info("➡️ URI: {}", uri);
+            log.info("➡️ Body: {}", body);
+            throw e;
+
+        } catch (Exception e) {
+            // Catch parsing / IO errors
+            log.info("❌ WhatsApp API call failed: {}", e.getMessage());
+            log.info("➡️ URI: {}", uri);
+            log.info("➡️ Body: {}", body);
+            throw new ClientErrorException("Error calling WhatsApp API: " + e.getMessage());
+        }
+    }
+
+
+    public Map<String, Object> sendTextMessageDynamic(String phoneNumberId, String to, String message) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("messaging_product", "whatsapp");
+        body.put("to", to);
+        body.put("type", "text");
+        body.put("text", Map.of("body", message));
+
+        return post("/" + phoneNumberId + "/messages", body);
+    }
+
+
+}

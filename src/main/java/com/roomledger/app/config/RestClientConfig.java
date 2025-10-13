@@ -1,5 +1,6 @@
 package com.roomledger.app.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -58,6 +59,15 @@ public class RestClientConfig {
         return builder
                 .requestFactory(buffering)
                 .requestInterceptors(list -> list.add(loggingInterceptor))
+                .build();
+    }
+
+
+    @Bean
+    @Qualifier("whatsappRestClient")
+    public RestClient whatsappRestClient(RestClient.Builder builder) {
+        return builder
+                .baseUrl("https://graph.facebook.com/v21.0")
                 .build();
     }
 
