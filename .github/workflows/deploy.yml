@@ -20,9 +20,11 @@ jobs:
 
       - name: Build Spring Boot JAR (Gradle)
         run: |
+          chmod +x gradlew
           ./gradlew clean bootJar
           mkdir -p build-output
           cp build/libs/*.jar build-output/app.jar
+      
 
       - name: Upload JAR to server (via Tailscale)
         uses: appleboy/scp-action@v0.1.7
