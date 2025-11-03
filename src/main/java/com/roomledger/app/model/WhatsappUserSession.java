@@ -23,7 +23,7 @@ public class WhatsappUserSession {
     @GeneratedValue
     private UUID id;
 
-    // --- Relations ---
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private WhatsappUser user;
@@ -34,7 +34,6 @@ public class WhatsappUserSession {
     @Column(name = "building_id")
     private UUID buildingId; // references buildings.id
 
-    // --- Attributes ---
     @Column(length = 50)
     private String intent;
 
