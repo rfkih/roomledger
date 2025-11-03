@@ -31,7 +31,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "app.jar"
+          source: "build-output/app.jar"
           target: "/deploy/roomledger/"
 
       - name: Restart RoomLedger app
@@ -41,7 +41,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /deploy/roomledger
+            cd /deploy/roomledger/build-output
             if pgrep -f "app.jar"; then
               echo "Stopping old app..."
               pkill -f "app.jar"
@@ -52,6 +52,6 @@ jobs:
               nohup java -jar app.jar > app.log 2>&1 < /dev/null &
               disown
             else
-              echo "ERROR: app.jar not found in /deploy/roomledger"
+              echo "ERROR: app.jar not found in /deploy/roomledger/build-output"
               exit 1
             fi
