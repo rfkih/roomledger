@@ -2,7 +2,7 @@ RoomLedger — Booking & Billing for Kos/Kost Domain: room bookings (kos/kost), 
 
 Features:
 
-    Tenants, Buildings, Rooms
+    Tenants, Buildings, Rooms (trigger)
     Room inquiry with filters (building, status, price) and availability by date range
     Booking lifecycle: DRAFT → ACTIVE → ENDED/CANCELLED
     Deposit first, then rent bills (monthly), with daily proration for partial months
