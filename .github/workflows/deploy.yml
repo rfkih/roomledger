@@ -2,7 +2,7 @@ name: Deploy RoomLedger via Tailscale
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master ] # make sure your main branch is really "master"
 
 jobs:
   deploy:
@@ -23,8 +23,7 @@ jobs:
           chmod +x gradlew
           ./gradlew clean bootJar
           mkdir -p build-output
-          cp build/libs/*.jar build-output/app.jar
-      
+          cp build/libs/*.jar build-output/app.jar      
 
       - name: Upload JAR to server (via Tailscale)
         uses: appleboy/scp-action@v0.1.7
@@ -33,7 +32,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "build-output/app.jar"
-          target: "/deploy/roomledger"
+          target: "/deploy/roomledger/"
 
       - name: Restart RoomLedger app
         uses: appleboy/ssh-action@v0.1.8
@@ -49,4 +48,4 @@ jobs:
               sleep 3
             fi
             echo "Starting new app with Java 21..."
-            nohup java -jar app.jar > app.log 2>&1 &
+            nohup java -jar app.jar > app.log 2>&1 & || true
