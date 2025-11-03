@@ -41,7 +41,4 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          script: |
-            echo "Restarting RoomLedger systemd service..."
-            sudo -n /usr/bin/systemctl restart roomledger
-            sudo -n /usr/bin/systemctl status roomledger --no-pager
+          script: sudo /usr/local/bin/restart-roomledger.sh
