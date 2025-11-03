@@ -34,12 +34,12 @@ jobs:
           source: "build-output/app.jar"
           target: "/deploy/roomledger/build-output/"
 
-      - name: Restart RoomLedger service
+      - name: Restart RoomLedger app via systemd
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            sudo systemctl restart roomledger
-            sudo systemctl status roomledger --no-pager
+            sudo -S systemctl restart roomledger
+            sudo -S systemctl status roomledger --no-pager
