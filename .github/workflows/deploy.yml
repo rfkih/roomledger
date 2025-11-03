@@ -25,33 +25,21 @@ jobs:
           mkdir -p build-output
           cp build/libs/*.jar build-output/app.jar
 
-      - name: Upload built JAR to server via Tailscale
+      - name: Upload JAR to server via Tailscale
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "build-output/app.jar"
-          target: "/deploy/roomledger/"
+          target: "/deploy/roomledger/build-output/app.jar"
 
-      - name: Restart RoomLedger app
+      - name: Restart RoomLedger service
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /deploy/roomledger/build-output
-            if pgrep -f "app.jar"; then
-              echo "Stopping old app..."
-              pkill -f "app.jar"
-              sleep 3
-            fi
-            if [ -f app.jar ]; then
-              echo "Starting new app with Java 21..."
-              nohup java -jar app.jar > app.log 2>&1 < /dev/null &
-              disown
-            else
-              echo "ERROR: app.jar not found in /deploy/roomledger/build-output"
-              exit 1
-            fi
+            sudo systemctl restart roomledger
+            sudo systemctl status roomledger --no-pager
