@@ -32,7 +32,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           source: "build-output/app.jar"
-          target: "/deploy/roomledger/build-output/app.jar"
+          target: "/deploy/roomledger/build-output/"
 
       - name: Restart RoomLedger service
         uses: appleboy/ssh-action@v0.1.8
