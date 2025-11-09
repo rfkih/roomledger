@@ -10,7 +10,7 @@ concurrency:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, x64, roomledger]   # add YOUR custom label to pin this runner
+    runs-on: [self-hosted, roomledger]   # add YOUR custom label to pin this runner
     timeout-minutes: 20
     permissions:
       contents: read
