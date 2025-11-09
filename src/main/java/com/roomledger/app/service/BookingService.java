@@ -59,7 +59,7 @@ public class BookingService {
 
         LocalDate start = req.startDate();
         LocalDate end   = req.endDate();
-        if (start == null || end == null || end.isBefore(start)) {
+        if (end.isBefore(start)) {
             throw new InvalidTransactionException("Invalid start/end");
         }
 
