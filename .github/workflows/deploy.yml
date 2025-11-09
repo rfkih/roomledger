@@ -3,38 +3,26 @@ name: Deploy RoomLedger via Tailscale
 on:
   push:
     branches: [ master ]
-# avoid “Queued forever” by canceling older in-flight deploys
-concurrency:
-  group: roomledger-deploy
-  cancel-in-progress: true
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, x64]   # match your runner’s labels
-    timeout-minutes: 20
-    permissions:
-      contents: read
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@v2
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
-          java-version: '21'
-          cache: gradle
+          distribution: 'temurin'
+          java-version: 21
 
       - name: Build Spring Boot JAR (Gradle)
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon clean bootJar
+          ./gradlew clean bootJar
           mkdir -p build-output
-          # copy the built jar to a stable name
           cp build/libs/*.jar build-output/app.jar
 
       - name: Upload JAR to server via Tailscale
@@ -47,16 +35,10 @@ jobs:
           target: "/deploy/roomledger/build-output/"
 
       - name: Restart RoomLedger app via systemd
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          script: |
-            sudo /usr/local/bin/restart-roomledger.sh
-            sleep 2
-            echo "===== systemd status ====="
-            sudo systemctl status --no-pager roomledger | head -n 40 || true
-            echo "===== last 80 log lines ====="
-            sudo journalctl -u roomledger -n 80 --no-pager || true
+          script: sudo /usr/local/bin/restart-roomledger.sh
