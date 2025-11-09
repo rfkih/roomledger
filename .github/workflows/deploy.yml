@@ -4,41 +4,66 @@ on:
   push:
     branches: [ master ]
 
+# avoid “Queued forever” by canceling older in-flight deploys
+concurrency:
+  group: roomledger-deploy
+  cancel-in-progress: true
+
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: [self-hosted, linux, x64]   # add a custom label too if you have one, e.g., roomledger
+    timeout-minutes: 20
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v2
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: 21
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
 
       - name: Build Spring Boot JAR (Gradle)
         run: |
           chmod +x gradlew
-          ./gradlew clean bootJar
+          ./gradlew --no-daemon clean bootJar
           mkdir -p build-output
+          # copy the built jar to a stable name
           cp build/libs/*.jar build-output/app.jar
 
-      - name: Upload JAR to server via Tailscale
-        uses: appleboy/scp-action@v0.1.7
+      # ---- No Docker from here ----
+      - name: Load SSH key (no Docker)
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "build-output/app.jar"
-          target: "/deploy/roomledger/build-output/"
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Restart RoomLedger app via systemd
-        uses: appleboy/ssh-action@v0.1.8
+      - name: Trust host key
+        run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Upload JAR via scp (no Docker)
+        run: |
+          scp -o BatchMode=yes \
+              build-output/app.jar \
+              ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/deploy/roomledger/build-output/app.jar
+
+      - name: Restart RoomLedger app via systemd (JS action, no Docker)
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          script: sudo /usr/local/bin/restart-roomledger.sh
+          script: |
+            sudo /usr/local/bin/restart-roomledger.sh
+            sleep 2
+            echo "===== systemd status ====="
+            sudo systemctl status --no-pager roomledger | head -n 40 || true
+            echo "===== last 80 log lines ====="
+            sudo journalctl -u roomledger -n 80 --no-pager || true
