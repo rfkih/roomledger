@@ -4,14 +4,13 @@ on:
   push:
     branches: [ master ]
 
-# avoid “Queued forever” by canceling older in-flight deploys
 concurrency:
   group: roomledger-deploy
   cancel-in-progress: true
 
 jobs:
   deploy:
-    runs-on: [self-hosted, linux, x64]   # add a custom label too if you have one, e.g., roomledger
+    runs-on: [self-hosted, linux, x64, roomledger]   # add YOUR custom label to pin this runner
     timeout-minutes: 20
     permissions:
       contents: read
@@ -35,11 +34,10 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon clean bootJar
           mkdir -p build-output
-          # copy the built jar to a stable name
           cp build/libs/*.jar build-output/app.jar
 
-      # ---- No Docker from here ----
-      - name: Load SSH key (no Docker)
+      # ---- NO DOCKER BELOW ----
+      - name: Load SSH key
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -47,23 +45,20 @@ jobs:
       - name: Trust host key
         run: ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
 
-      - name: Upload JAR via scp (no Docker)
+      - name: Upload JAR via scp
         run: |
           scp -o BatchMode=yes \
               build-output/app.jar \
               ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }}:/deploy/roomledger/build-output/app.jar
 
-      - name: Restart RoomLedger app via systemd (JS action, no Docker)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
-          script: |
+      - name: Restart RoomLedger via SSH
+        run: |
+          ssh -o BatchMode=yes ${{ secrets.SSH_USER }}@${{ secrets.SERVER_IP }} <<'EOF'
+            set -euo pipefail
             sudo /usr/local/bin/restart-roomledger.sh
             sleep 2
             echo "===== systemd status ====="
             sudo systemctl status --no-pager roomledger | head -n 40 || true
             echo "===== last 80 log lines ====="
             sudo journalctl -u roomledger -n 80 --no-pager || true
+          EOF
