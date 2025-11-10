@@ -27,7 +27,6 @@ public class TelegramService {
                 .toBodilessEntity();
     }
 
-    // optional overload with parseMode if needed later
     public void sendMessage(String chatId, String text, String parseMode) {
         http.post()
                 .uri("/bot{token}/sendMessage", token)

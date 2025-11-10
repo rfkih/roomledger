@@ -43,29 +43,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                // Stateless API: matikan CSRF (webhook diverifikasi via secret header di controller)
+                // Stateless API
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // Tidak pakai session
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // Aturan akses
                 .authorizeHttpRequests(auth -> auth
-                        // Webhook + healthcheck publik (sesuaikan path webhook yang kamu pakai)
                         .requestMatchers(
-                                "/callbacks/**",          // jika webhook kamu di bawah /callbacks/**
-                                "/telegram/webhook",      // atau endpoint webhook versi sebelumnya
+                                "/callbacks/**",
+                                "/telegram/webhook",
                                 "/healthcheck"
                         ).permitAll()
-
-                        // (opsional) buka docs kalau ada
                         .requestMatchers(
                                 "/v3/api-docs/**",
                                 "/swagger-ui.html",
                                 "/swagger-ui/**"
                         ).permitAll()
-
-                        // lainnya wajib auth
                         .anyRequest().authenticated()
                 )
 

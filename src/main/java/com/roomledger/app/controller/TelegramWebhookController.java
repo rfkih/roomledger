@@ -32,7 +32,7 @@ public class TelegramWebhookController {
             String text   = update.message.text != null ? update.message.text : "";
             telegramService.sendMessage(
                     chatId,
-                    text.startsWith("/start") ? "Webhook OK ✅" : "Pesan diterima via webhook."
+                    text.startsWith("/start") ? "Webhook OK " : "Pesan diterima via webhook."
             );
         }
         return ResponseEntity.ok().build();
